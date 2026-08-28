@@ -4,9 +4,10 @@
 
 **Live status:** [phase-execution-status.md](phase-execution-status.md)  
 **Phase design:** [xai-dynamic-routing-phase-plan.md](xai-dynamic-routing-phase-plan.md)  
-**Code:** `projects/xai-dynamic-routing/`
+**Code:** `projects/xai-dynamic-routing/`  
+**Concepts:** [concepts/cn-concepts-xai-routing.md](concepts/cn-concepts-xai-routing.md)
 
-Working directory for all commands below: `projects/xai-dynamic-routing` unless you use `scripts/run.ps1` (it cds for you).
+Working directory for all commands below: `projects/xai-dynamic-routing`. On Windows, use `scripts\*.cmd` (PowerShell often blocks `.ps1`).
 
 ---
 
@@ -15,7 +16,7 @@ Working directory for all commands below: `projects/xai-dynamic-routing` unless 
 ```
 cd projects/xai-dynamic-routing
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+.\.venv\Scripts\activate.bat
 pip install -r requirements.txt
 ```
 
@@ -27,7 +28,8 @@ Stay in the venv for later steps.
 
 | Phase | Ready? | You execute | Expected |
 |-------|--------|-------------|----------|
-| **P0** Scaffold | **yes** | `python scripts/load_sample.py` or `.\scripts\run.ps1 p0` | `nodes: 8` and `edges: 11` |
+| **P0** Scaffold | **yes** | `python scripts/load_sample.py` or `scripts\p0.cmd` | `nodes: 8` and `edges: 11` |
+| **P0 web** | **yes** | `scripts\web-up.cmd` then open `http://127.0.0.1:8765/` | Graph with 8 nodes; `scripts\web-test.cmd` prints `ok` |
 | **P1** Features | no | *(script to be added with P1)* | Path/feature table `R1`→`R8` |
 | **P2** Baselines | no | *(script to be added with P2)* | RIP vs OSPF traces |
 | **P3** Train / infer | no | `python scripts/train.py` then `python scripts/infer.py` | Currently exits: not implemented |
@@ -35,6 +37,8 @@ Stay in the venv for later steps.
 | **P5** Compare | no | `python scripts/compare.py` | Currently exits: not implemented |
 | **P6** Dynamics | no | *(script to be added with P6)* | 10-step reroute log |
 | **P7** Zoo / testbed | no | *(script to be added with P7)* | Compare on a non-toy graph |
+
+Webpage plan: [web/web-phase-plan.md](web/web-phase-plan.md). Docker install/start/debug/test: [web/backend-docker.md](web/backend-docker.md).
 
 ---
 
@@ -44,11 +48,11 @@ From repo root:
 
 ```
 cd projects/xai-dynamic-routing
-.\.venv\Scripts\Activate.ps1
+.\.venv\Scripts\activate.bat
 python scripts/load_sample.py
 ```
 
-Or from that folder: `.\scripts\run.ps1 p0`
+Or: `scripts\p0.cmd`
 
 If `networkx` is missing, run setup again. Bind address for any later UI: `127.0.0.1` (see `configs/default.json`).
 
@@ -58,6 +62,7 @@ If `networkx` is missing, run setup again. Bind address for any later UI: `127.0
 
 1. Setup (venv + pip)  
 2. **P0** `load_sample.py` — confirm 8 / 11  
+2b. **P0 web** (Docker/WSL): `scripts\web-up.cmd` → `http://127.0.0.1:8765/` → `scripts\web-test.cmd` → `scripts\web-down.cmd`  
 3. Wait for P1 script, then run it (`R1` → `R8` table)  
 4. P2 baseline script (can overlap P3 after P1)  
 5. P3 `train.py` then `infer.py`  

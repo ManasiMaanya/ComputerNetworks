@@ -9,7 +9,7 @@ Any local service must bind `127.0.0.1`. Default demo port (if a UI is added lat
 ```
 cd projects/xai-dynamic-routing
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+.\.venv\Scripts\activate.bat
 pip install -r requirements.txt
 ```
 
@@ -22,6 +22,18 @@ python scripts/load_sample.py
 Or: `.\scripts\run.ps1 p0`
 
 Expected: `nodes: 8` and `edges: 11`. Full operator plan: `docs/execution-plan.md`.
+
+## Webpage (Docker / WSL)
+
+Install, start, debug, test: `docs/web/backend-docker.md`  
+What the page shows each phase: `docs/web/web-phase-plan.md`
+
+```
+scripts\web-up.cmd
+```
+
+Open `http://127.0.0.1:8765/` then `scripts\web-test.cmd`. Stop: `scripts\web-down.cmd`.
+
 
 
 ## Layout

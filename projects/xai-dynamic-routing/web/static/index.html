@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>XAI routing demo — P0 topology</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>Explainable routing demo</h1>
+    <p class="sub">Phase 0: inspect the lab topology. RIP / OSPF / AI tabs unlock in later phases.</p>
+  </header>
+  <nav>
+    <span class="tab on">Topology</span>
+    <span class="tab off" title="Phase 1">Path features</span>
+    <span class="tab off" title="Phase 2">RIP / OSPF</span>
+    <span class="tab off" title="Phase 3–4">AI + XAI</span>
+    <span class="tab off" title="Phase 5">Compare</span>
+    <span class="tab off" title="Phase 6">Timeline</span>
+  </nav>
+  <main>
+    <section class="panel">
+      <h2>Use-case</h2>
+      <p>You are a network operator looking at a small L3 graph (R1–R8). Click an edge to read QoS and <code>security_risk</code> (a lab score, not an attack tool).</p>
+    </section>
+    <section class="panel">
+      <h2>Enhancement (later)</h2>
+      <p>Classical RIP uses hop count; OSPF uses one link cost. Later phases add multi-metric paths, an AI recommendation, and SHAP/LIME on this page.</p>
+    </section>
+    <p id="status">Loading topology…</p>
+    <svg id="graph" viewBox="0 0 640 400" role="img" aria-label="Sample topology"></svg>
+    <pre id="detail">Click a link.</pre>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
