@@ -17,4 +17,6 @@ Execution plan (scripts you run): [docs/execution-plan.md](docs/execution-plan.m
 CN concepts for this project: [docs/concepts/cn-concepts-xai-routing.md](docs/concepts/cn-concepts-xai-routing.md)  
 Webpage (phase UI plan): [docs/web/web-phase-plan.md](docs/web/web-phase-plan.md)  
 Backend / Docker (install, start, debug, test): [docs/web/backend-docker.md](docs/web/backend-docker.md)  
+HTTP API (usage + example output): [docs/web/api.md](docs/web/api.md)  
+Context summary (auto near high context): [docs/context-summary.md](docs/context-summary.md)  
 Fault ledger (fixes need explicit ID approval): [docs/fault-ledger.md](docs/fault-ledger.md)
