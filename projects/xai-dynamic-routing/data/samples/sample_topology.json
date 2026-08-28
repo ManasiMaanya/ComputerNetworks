@@ -1,0 +1,17 @@
+{
+  "directed": false,
+  "nodes": ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"],
+  "edges": [
+    {"u": "R1", "v": "R2", "delay": 5, "bandwidth": 100, "congestion": 0.2, "loss": 0.01, "energy": 1.0, "security_risk": 0.1, "utilization": 0.3, "queue": 2, "reliability": 0.99},
+    {"u": "R1", "v": "R3", "delay": 12, "bandwidth": 40, "congestion": 0.5, "loss": 0.04, "energy": 1.2, "security_risk": 0.4, "utilization": 0.6, "queue": 8, "reliability": 0.90},
+    {"u": "R2", "v": "R4", "delay": 8, "bandwidth": 80, "congestion": 0.3, "loss": 0.02, "energy": 1.1, "security_risk": 0.2, "utilization": 0.4, "queue": 3, "reliability": 0.96},
+    {"u": "R3", "v": "R4", "delay": 6, "bandwidth": 50, "congestion": 0.4, "loss": 0.03, "energy": 1.0, "security_risk": 0.5, "utilization": 0.5, "queue": 5, "reliability": 0.92},
+    {"u": "R3", "v": "R5", "delay": 4, "bandwidth": 90, "congestion": 0.2, "loss": 0.01, "energy": 0.9, "security_risk": 0.15, "utilization": 0.25, "queue": 1, "reliability": 0.98},
+    {"u": "R4", "v": "R6", "delay": 7, "bandwidth": 70, "congestion": 0.35, "loss": 0.02, "energy": 1.0, "security_risk": 0.25, "utilization": 0.45, "queue": 4, "reliability": 0.95},
+    {"u": "R5", "v": "R6", "delay": 15, "bandwidth": 30, "congestion": 0.7, "loss": 0.06, "energy": 1.4, "security_risk": 0.6, "utilization": 0.8, "queue": 12, "reliability": 0.85},
+    {"u": "R5", "v": "R7", "delay": 9, "bandwidth": 60, "congestion": 0.3, "loss": 0.02, "energy": 1.1, "security_risk": 0.3, "utilization": 0.4, "queue": 3, "reliability": 0.94},
+    {"u": "R6", "v": "R8", "delay": 5, "bandwidth": 100, "congestion": 0.2, "loss": 0.01, "energy": 1.0, "security_risk": 0.1, "utilization": 0.3, "queue": 2, "reliability": 0.99},
+    {"u": "R7", "v": "R8", "delay": 6, "bandwidth": 80, "congestion": 0.25, "loss": 0.015, "energy": 1.0, "security_risk": 0.2, "utilization": 0.35, "queue": 2, "reliability": 0.97},
+    {"u": "R2", "v": "R5", "delay": 20, "bandwidth": 20, "congestion": 0.8, "loss": 0.08, "energy": 1.5, "security_risk": 0.7, "utilization": 0.85, "queue": 15, "reliability": 0.80}
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "bind": "127.0.0.1",
+  "port": 8765,
+  "sample_topology": "data/samples/sample_topology.json",
+  "k_candidate_paths": 5,
+  "max_hops": 8,
+  "ospf_cost": "delay"
+}
