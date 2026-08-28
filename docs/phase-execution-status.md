@@ -2,7 +2,7 @@
 
 **Canonical live board** for Title 4. Checklists and dependencies stay in [xai-dynamic-routing-phase-plan.md](xai-dynamic-routing-phase-plan.md).
 
-**Last updated:** 2026-08-28 (first project commit)
+**Last updated:** 2026-08-28 (web demo, concepts, Docker commit)
 
 **Rule:** Before every git commit that touches this capstone or its docs, refresh this file: Last updated, phase table, current work, next action, execution log. Keep `docs/execution-plan.md` in sync with scripts the user can run.
 
@@ -13,7 +13,7 @@
 | Field | Value |
 |-------|--------|
 | **Active phase** | None (P0 complete; P1 not started) |
-| **Next action** | You: `python scripts/load_sample.py` (P0). Then Phase 1 implementation + script |
+| **Next action** | P0 CLI: `python scripts/load_sample.py` or `scripts\p0.cmd`. P0 web: `scripts\web-up.cmd` then `http://127.0.0.1:8765/` then `scripts\web-test.cmd`. Then Phase 1. |
 | **Blocked by** | — |
 | **Faults** | All ledger items `open`; no IDs approved for correction ([fault-ledger.md](fault-ledger.md)) |
 
@@ -23,7 +23,7 @@
 
 | Phase | Name | Status | Checklist | Evidence (this snapshot) |
 |-------|------|--------|-----------|--------------------------|
-| P0 | Scaffold | **done** | complete | Tree, `requirements.txt`, sample JSON, `load.py`; load printed `8 11` with NetworkX |
+| P0 | Scaffold | **done** | complete | Tree, sample JSON, `load.py`; CLI `8 11`; P0 webpage + Docker docs |
 | P1 | Topology + features | **not_started** | open | `path_features.py` is a docstring only |
 | P2 | RIP / OSPF baselines | **not_started** | open | `baselines.py` stub |
 | P3 | Labels + recommender | **not_started** | open | `recommender.py` stub; `train.py`/`infer.py` exit unimplemented |
@@ -53,10 +53,11 @@ Statuses: `not_started` · `in_progress` · `blocked` · `done` · `skipped`
 
 Use when staging. Update the list if the commit set changes.
 
-- Project skill: `.cursor/skills/computer-networks/`
-- Docs: overview, phase plan, fault ledger, execution plan, this status board
-- Capstone: P0 + `scripts/load_sample.py` and `scripts/run.ps1`
-- Repo `README.md`, `.gitignore`, `labs/`, `reports/`
+- Concepts guide + figures (`docs/concepts/`)
+- Webpage phase plan + backend/Docker docs (`docs/web/`)
+- P0 FastAPI/Docker demo, Windows `.cmd` launchers, WSL compose scripts
+- WSL GitHub SSH notes (`docs/wsl-github-ssh.md`) and setup script
+- Skill / README / execution-plan updates
 
 **Not in this commit as completed work:** P1–P7 implementation.
 
@@ -72,6 +73,10 @@ Use when staging. Update the list if the commit set changes.
 | 2026-08-28 | This status board added; tables synced for commit |
 | 2026-08-28 | Operator execution plan + `scripts/load_sample.py` / `run.ps1`; skill: always ship a runnable script |
 | 2026-08-28 | First git commit of skill, docs, and P0 scaffold |
+| 2026-08-28 | Concepts guide + figures: `docs/concepts/cn-concepts-xai-routing.md` |
+| 2026-08-28 | P0 webpage + Docker/WSL docs; `web-up` / `web-test` scripts |
+| 2026-08-28 | Windows `.cmd` launchers for execution-policy Restricted |
+| 2026-08-28 | Commit: concepts, P0 webpage, Docker/WSL, GitHub SSH helper |
 
 ---
 

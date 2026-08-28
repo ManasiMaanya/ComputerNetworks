@@ -50,7 +50,7 @@ Always add a script the user can run themselves (`python scripts/<name>.py` or a
 
 Keep the operator plan in `docs/execution-plan.md`: what to run, in order, expected output, Ready? yes/no. When a phase is implemented, add the script and a row there the same change.
 
-Capstone scripts live in `projects/xai-dynamic-routing/scripts/`. Windows: PowerShell (`.\scripts\run.ps1 p0`).
+Windows: PowerShell (`.\scripts\run.ps1 p0`) often blocked by execution policy — prefer `scripts\p0.cmd` and `scripts\web-up.cmd`.
 
 ## Default workflow
 
@@ -79,3 +79,6 @@ For theory or viva-style answers: definition, where it sits in OSI/TCP-IP, how i
 - Lab layout, syllabus map, formulas: [reference.md](reference.md)
 - Socket and algorithm examples: [examples.md](examples.md)
 - Operator commands: `docs/execution-plan.md`
+- Title 4 CN concepts: `docs/concepts/cn-concepts-xai-routing.md`
+- Demo webpage by phase: `docs/web/web-phase-plan.md`
+- Backend/Docker ops: `docs/web/backend-docker.md`
