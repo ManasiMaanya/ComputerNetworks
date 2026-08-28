@@ -31,12 +31,23 @@ switch ($Step.ToLower()) {
         exit $LASTEXITCODE
     }
     { $_ -in @("web-up", "webup") } {
-        wsl -e bash -lc "cd '$wslRoot' && chmod +x scripts/*.sh && ./scripts/wsl-web-up.sh"
+        $docker = Get-Command docker -ErrorAction SilentlyContinue
+        if ($docker) {
+            docker compose up --build -d
+            exit $LASTEXITCODE
+        }
+        Write-Host "Docker not on PATH. Starting local uvicorn. Ctrl+C to stop."
+        python -m uvicorn web.app:app --host 127.0.0.1 --port 8765
         exit $LASTEXITCODE
     }
     { $_ -in @("web-down", "webdown") } {
-        wsl -e bash -lc "cd '$wslRoot' && ./scripts/wsl-web-down.sh"
-        exit $LASTEXITCODE
+        $docker = Get-Command docker -ErrorAction SilentlyContinue
+        if ($docker) {
+            docker compose down
+            exit $LASTEXITCODE
+        }
+        Write-Host "No Docker CLI. Stop uvicorn with Ctrl+C in the start window."
+        exit 0
     }
     { $_ -in @("web-test", "webtest") } {
         python scripts/web_health.py

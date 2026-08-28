@@ -1,6 +1,7 @@
 # Webpage evolution by phase
 
 **Demo URL (when Docker is up):** `http://127.0.0.1:8765/`  
+**API usage and example JSON:** [api.md](api.md)  
 **Ops (install, start, debug, test):** [backend-docker.md](backend-docker.md)  
 **Routing phases:** [../xai-dynamic-routing-phase-plan.md](../xai-dynamic-routing-phase-plan.md)
 

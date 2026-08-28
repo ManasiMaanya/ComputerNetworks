@@ -2,7 +2,7 @@
 
 **Canonical live board** for Title 4. Checklists and dependencies stay in [xai-dynamic-routing-phase-plan.md](xai-dynamic-routing-phase-plan.md).
 
-**Last updated:** 2026-08-28 (web demo, concepts, Docker commit)
+**Last updated:** 2026-08-28 (context-summary rule)
 
 **Rule:** Before every git commit that touches this capstone or its docs, refresh this file: Last updated, phase table, current work, next action, execution log. Keep `docs/execution-plan.md` in sync with scripts the user can run.
 
@@ -77,6 +77,9 @@ Use when staging. Update the list if the commit set changes.
 | 2026-08-28 | P0 webpage + Docker/WSL docs; `web-up` / `web-test` scripts |
 | 2026-08-28 | Windows `.cmd` launchers for execution-policy Restricted |
 | 2026-08-28 | Commit: concepts, P0 webpage, Docker/WSL, GitHub SSH helper |
+| 2026-08-28 | web-up: Windows uvicorn fallback; Docker missing in WSL |
+| 2026-08-28 | API reference: `docs/web/api.md` |
+| 2026-08-28 | Auto context summary at ~80%: `docs/context-summary.md` + skill rule |
 
 ---
 

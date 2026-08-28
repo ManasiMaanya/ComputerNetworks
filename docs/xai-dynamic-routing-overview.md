@@ -184,7 +184,8 @@ Live status (update before commit): [phase-execution-status.md](phase-execution-
 What you run: [execution-plan.md](execution-plan.md).  
 Concepts (explanations, examples, diagrams): [concepts/cn-concepts-xai-routing.md](concepts/cn-concepts-xai-routing.md).  
 Webpage by phase: [web/web-phase-plan.md](web/web-phase-plan.md).  
-Backend/Docker: [web/backend-docker.md](web/backend-docker.md).
+Backend/Docker: [web/backend-docker.md](web/backend-docker.md).  
+HTTP API: [web/api.md](web/api.md).
 
 **Critical path:** P0 → P1 → P3 → P4 → P5. P2 can run in parallel with P3 after P1. P0 is done.
 

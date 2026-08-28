@@ -1,6 +1,7 @@
 # Backend and Docker
 
 Canonical ops for the Title 4 **demo webpage**. UI evolution: [web-phase-plan.md](web-phase-plan.md).  
+API usage and example JSON: [api.md](api.md).  
 Host bind: **`127.0.0.1`**. Host port: **`8765`** (`configs/default.json`).
 
 The process inside Docker listens on `0.0.0.0:8765` so the container port can be published. Compose **must** publish as `127.0.0.1:8765:8765` so the service is not advertised on all LAN interfaces.
@@ -38,7 +39,17 @@ docker version
 docker compose version
 ```
 
-Both should print a client and a server. If the server fails, start Docker Desktop and wait until it is running.
+Both should print a client and a server. If `docker: command not found` **inside WSL**, Docker Desktop is missing or **WSL integration** is off for Ubuntu. This machine currently has **no Docker CLI** in WSL and no Docker folder under `C:\Program Files\Docker`.
+
+Until Docker is installed, **`.\scripts\web-up.cmd` starts local uvicorn** (Python) on `127.0.0.1:8765`.
+
+### 2.1b Install Docker Desktop (when you want containers)
+
+1. Install [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/).  
+2. Settings → General: WSL 2 engine.  
+3. Settings → Resources → WSL integration: enable **Ubuntu**.  
+4. Restart Docker Desktop, then in WSL: `docker version`.
+
 
 ### 2.2 Repo path inside WSL
 
@@ -73,25 +84,21 @@ chmod +x scripts/wsl-web-up.sh scripts/wsl-web-down.sh scripts/wsl-web-test.sh
 ./scripts/wsl-web-up.sh
 ```
 
-**From Windows (PowerShell execution policy often blocks `.ps1`):** prefer `.cmd` files:
+**From Windows PowerShell**, you must `cd` into `projects\xai-dynamic-routing` and use a leading `.\` :
 
 ```
-scripts\web-up.cmd
+cd C:\Users\manas\VIT\ComputerNetworks\projects\xai-dynamic-routing
+.\scripts\web-up.cmd
 ```
 
-Same folder: `scripts\web-down.cmd`, `scripts\web-test.cmd`.
+`scripts\web-up.cmd` without `.\` is treated as a PowerShell module and fails.
 
-If you still want `run.ps1` for this session only:
+If Docker is not installed, that command starts **uvicorn** in the same window (leave it open). Then browse **http://127.0.0.1:8765/**
 
-```
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run.ps1 web-up
-```
+If Docker Desktop is installed and `docker` works in PowerShell, the same `.cmd` runs `docker compose up`.
 
-Do **not** need to change the machine-wide execution policy. `web-up.cmd` calls WSL to run `wsl-web-up.sh`.
+Do **not** need to change the machine-wide execution policy.
 
-Wait until health checks succeed. Open a browser:
-
-**http://127.0.0.1:8765/**
 
 ### 3.2 Local uvicorn (no Docker)
 

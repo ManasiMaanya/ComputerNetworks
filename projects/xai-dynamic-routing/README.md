@@ -26,10 +26,12 @@ Expected: `nodes: 8` and `edges: 11`. Full operator plan: `docs/execution-plan.m
 ## Webpage (Docker / WSL)
 
 Install, start, debug, test: `docs/web/backend-docker.md`  
+API usage and sample JSON: `docs/web/api.md`  
 What the page shows each phase: `docs/web/web-phase-plan.md`
 
 ```
-scripts\web-up.cmd
+cd projects\xai-dynamic-routing
+.\scripts\web-up.cmd
 ```
 
 Open `http://127.0.0.1:8765/` then `scripts\web-test.cmd`. Stop: `scripts\web-down.cmd`.

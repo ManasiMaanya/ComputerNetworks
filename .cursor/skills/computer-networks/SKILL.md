@@ -43,6 +43,19 @@ Update that file **before the user commits** (and whenever a phase starts, finis
 
 Faults: `docs/fault-ledger.md` — no fix without explicit ID approval.
 
+## Context summary (~80% utilization)
+
+When context use is about **80%**, the product reports high context, or compaction is about to drop history: **do not wait to be asked.**
+
+1. Rewrite `docs/context-summary.md` (overwrite, keep it short: goal, done, next, commands, git, open faults, decisions).
+2. Tell the user in **one short paragraph** that the summary was saved there.
+3. After that, prefer the summary + `docs/phase-execution-status.md` over restating the whole thread.
+
+There is no exact percent API. If this chat already spans skill + phases + git + web/API, treat that as ≥80% and summarize.
+
+Do not put secrets or SSH private keys in the summary.
+
+
 
 ## Runnable scripts (mandatory)
 
@@ -82,3 +95,5 @@ For theory or viva-style answers: definition, where it sits in OSI/TCP-IP, how i
 - Title 4 CN concepts: `docs/concepts/cn-concepts-xai-routing.md`
 - Demo webpage by phase: `docs/web/web-phase-plan.md`
 - Backend/Docker ops: `docs/web/backend-docker.md`
+- HTTP API reference: `docs/web/api.md`
+- Rolling context summary: `docs/context-summary.md`
