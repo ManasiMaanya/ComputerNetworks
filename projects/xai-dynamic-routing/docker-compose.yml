@@ -6,4 +6,9 @@ services:
       - "127.0.0.1:8765:8765"
     environment:
       PYTHONPATH: /app
+    volumes:
+      # Generated artifacts stay on the host (gitignored); the AI tabs need the trained models.
+      - ./models:/app/models:ro
+      - ./data/raw:/app/data/raw:ro
+      - ./outputs:/app/outputs
     restart: unless-stopped
