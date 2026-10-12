@@ -182,6 +182,7 @@ Default bind for any local service: `127.0.0.1`. Document the port in `projects/
 Canonical plan: [xai-dynamic-routing-phase-plan.md](xai-dynamic-routing-phase-plan.md).  
 Live status (update before commit): [phase-execution-status.md](phase-execution-status.md).  
 What you run: [execution-plan.md](execution-plan.md).  
+Methods and results reference: [xai-dynamic-routing-methods.md](xai-dynamic-routing-methods.md).  
 Concepts (explanations, examples, diagrams): [concepts/cn-concepts-xai-routing.md](concepts/cn-concepts-xai-routing.md).  
 Webpage by phase: [web/web-phase-plan.md](web/web-phase-plan.md).  
 Backend/Docker: [web/backend-docker.md](web/backend-docker.md).
