@@ -4,5 +4,106 @@
   "sample_topology": "data/samples/sample_topology.json",
   "k_candidate_paths": 5,
   "max_hops": 8,
-  "ospf_cost": "delay"
+  "candidate_strategy": "mixed",
+  "ospf_cost": "delay",
+  "ospf_reference_bandwidth_bps": 100000000,
+
+  "scoring": {
+    "weights": {
+      "delay": 0.25,
+      "security_risk": 0.20,
+      "loss": 0.15,
+      "congestion": 0.15,
+      "bandwidth": 0.08,
+      "reliability": 0.05,
+      "utilization": 0.05,
+      "queue": 0.03,
+      "energy": 0.02,
+      "hops": 0.02
+    },
+    "reference": {
+      "delay_ms": 50.0,
+      "loss": 0.10,
+      "bandwidth_mbps": 100.0,
+      "unreliability": 0.20,
+      "energy": 1.5,
+      "queue": 15.0,
+      "hops": 8
+    },
+    "hard_constraints": {
+      "max_security_risk": 0.65,
+      "penalty": 1.0
+    }
+  },
+
+  "training": {
+    "seed": 42,
+    "sample_snapshots": 150,
+    "synthetic_graphs": 80,
+    "synthetic_nodes": [8, 24],
+    "perturbation": 0.35,
+    "test_size": 0.25,
+    "n_estimators": 150,
+    "min_samples_leaf": 5,
+    "lime_background_rows": 500,
+    "labels": "future_outcome",
+    "trace_steps": 300,
+    "decision_stride": 2,
+    "synthetic_trace_steps": 24,
+    "synthetic_decision_stride": 4,
+    "history_steps": 5,
+    "horizon_steps": 5,
+    "test_time_fraction": 0.3,
+    "blackbox_hidden_layers": [64, 32],
+    "blackbox_max_iter": 500
+  },
+
+  "traffic": {
+    "reversion": {"congestion": 0.25, "loss": 0.25, "security_risk": 0.10},
+    "noise": {"congestion": 0.03, "loss": 0.003, "security_risk": 0.01},
+    "burst_prob": 0.06,
+    "burst_size": {"congestion": 0.30, "loss": 0.03},
+    "incident_prob": 0.02,
+    "incident_size": 0.30
+  },
+
+  "xai": {
+    "top_k": 5,
+    "lime_num_samples": 2000,
+    "seed": 42
+  },
+
+  "paths": {
+    "models_dir": "models",
+    "outputs_dir": "outputs",
+    "processed_dir": "data/processed",
+    "raw_dir": "data/raw"
+  },
+
+  "compare": {
+    "pairs": [["R1", "R8"], ["R2", "R3"], ["R1", "R7"], ["R4", "R7"], ["R3", "R8"], ["R2", "R7"], ["R8", "R1"]],
+    "random_pairs": 12
+  },
+
+  "simulation": {
+    "scenario": "configs/scenarios/sample_incident.json"
+  },
+
+  "topology_zoo": {
+    "propagation_km_per_ms": 200.0,
+    "per_hop_processing_ms": 0.5,
+    "default_delay_ms": 5.0,
+    "default_bandwidth_mbps": 1000.0,
+    "missing_metric_policy": "synthetic",
+    "synthetic_seed": 7,
+    "defaults": {
+      "congestion": 0.3,
+      "loss": 0.01,
+      "energy": 1.0,
+      "security_risk": 0.2,
+      "utilization": 0.4,
+      "queue": 3,
+      "reliability": 0.97
+    }
+  }
 }

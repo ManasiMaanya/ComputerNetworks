@@ -1,0 +1,18 @@
+{
+  "name": "sample_incident",
+  "description": "R1->R8 on the sample topology. Small seeded drift on congestion/loss/risk every step. Link R4-R6 (on the initial best path) degrades: congestion and loss build at step 3, it is flagged high-risk at step 5, and it recovers at step 8.",
+  "topology": null,
+  "src": "R1",
+  "dst": "R8",
+  "steps": 10,
+  "seed": 11,
+  "drift": {
+    "metrics": ["congestion", "loss", "security_risk"],
+    "sigma": 0.01
+  },
+  "events": [
+    {"step": 3, "edge": ["R4", "R6"], "set": {"congestion": 0.85, "loss": 0.07}, "label": "congestion builds on R4-R6"},
+    {"step": 5, "edge": ["R4", "R6"], "set": {"security_risk": 0.8}, "label": "R4-R6 flagged high risk"},
+    {"step": 8, "edge": ["R4", "R6"], "set": {"congestion": 0.35, "loss": 0.02, "security_risk": 0.25}, "label": "R4-R6 recovers"}
+  ]
+}
