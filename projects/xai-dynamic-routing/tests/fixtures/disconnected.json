@@ -1,0 +1,11 @@
+{
+  "directed": false,
+  "name": "disconnected",
+  "nodes": ["A", "B", "C", "D", "E"],
+  "edges": [
+    {"u": "A", "v": "B", "delay": 5, "bandwidth": 100, "congestion": 0.2, "loss": 0.01, "energy": 1.0, "security_risk": 0.1, "utilization": 0.3, "queue": 2, "reliability": 0.99},
+    {"u": "B", "v": "C", "delay": 7, "bandwidth": 50, "congestion": 0.3, "loss": 0.02, "energy": 1.1, "security_risk": 0.3, "utilization": 0.4, "queue": 3, "reliability": 0.97},
+    {"u": "A", "v": "C", "delay": 20, "bandwidth": 20, "congestion": 0.6, "loss": 0.05, "energy": 1.3, "security_risk": 0.7, "utilization": 0.7, "queue": 9, "reliability": 0.9},
+    {"u": "D", "v": "E", "delay": 3, "bandwidth": 80, "congestion": 0.1, "loss": 0.01, "energy": 0.9, "security_risk": 0.2, "utilization": 0.2, "queue": 1, "reliability": 0.99}
+  ]
+}

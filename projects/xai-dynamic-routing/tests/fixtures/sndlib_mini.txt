@@ -1,0 +1,34 @@
+?SNDlib native format; type: network; version: 1.0
+# network sndlib_mini (hand-written test fixture in SNDlib native format)
+
+# NODE SECTION
+#
+# <node_id> [(<longitude>, <latitude>)]
+
+NODES (
+  Atlanta ( -84.39 33.75 )
+  Boston ( -71.06 42.36 )
+  Chicago ( -87.63 41.88 )
+  Denver ( -104.99 39.74 )
+)
+
+# LINK SECTION
+#
+# <link_id> ( <source> <target> ) <pre_installed_capacity> <pre_installed_capacity_cost> <routing_cost> <setup_cost> ( {<module_capacity> <module_cost>}* )
+
+LINKS (
+  L1 ( Atlanta Boston ) 0.00 0.00 0.00 0.00 ( 40.00 100.00 155.00 300.00 )
+  L2 ( Boston Chicago ) 100.00 0.00 0.00 0.00 ( )
+  L3 ( Chicago Denver ) 0.00 0.00 0.00 0.00 ( 622.00 900.00 )
+  L4 ( Atlanta Chicago ) 0.00 0.00 0.00 0.00 ( 2488.00 2000.00 )
+)
+
+# DEMAND SECTION
+#
+# <demand_id> ( <source> <target> ) <routing_unit> <demand_value> <max_path_length>
+
+DEMANDS (
+  D1 ( Atlanta Denver ) 1 12.50 UNLIMITED
+  D2 ( Boston Denver ) 1 40.00 UNLIMITED
+  D3 ( Atlanta Boston ) 1 3.00 UNLIMITED
+)
