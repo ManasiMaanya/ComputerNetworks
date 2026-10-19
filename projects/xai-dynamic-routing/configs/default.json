@@ -86,7 +86,8 @@
   },
 
   "simulation": {
-    "scenario": "configs/scenarios/sample_incident.json"
+    "scenario": "configs/scenarios/sample_incident.json",
+    "hysteresis_margin": 0.03
   },
 
   "topology_zoo": {

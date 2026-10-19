@@ -46,6 +46,29 @@ def net_changes(changes: list[dict]) -> list[dict]:
     return [c for c in merged.values() if c["new"] != c["old"]]
 
 
+def apply_hysteresis(rec, prev_path: tuple[str, ...] | None, margin: float) -> int:
+    """Anti-flapping (F-021 follow-up): don't reroute away from `prev_path` for a negligible gain.
+
+    If `prev_path` is still among this step's candidates and the model's top pick is not at least
+    `margin` (relative) cheaper than it, keep `prev_path` instead of switching. Returns the
+    candidate index to use as `rec.chosen`. A reroute still happens immediately whenever the
+    previous path drops out of the candidate set (e.g. an edge becomes unusable) or the new pick
+    is clearly better, so genuine degradations (sample_incident's risk/congestion events) are not
+    delayed -- only near-tied noise-level flips are suppressed.
+    """
+    if prev_path is None or margin <= 0:
+        return rec.chosen
+    labels = [c.nodes for c in rec.candidates]
+    if prev_path not in labels or labels[rec.chosen] == prev_path:
+        return rec.chosen
+    prev_idx = labels.index(prev_path)
+    new_cost = float(rec.frame.loc[rec.chosen, "predicted_cost"])
+    old_cost = float(rec.frame.loc[prev_idx, "predicted_cost"])
+    if old_cost <= 0 or new_cost < old_cost * (1 - margin):
+        return rec.chosen  # clearly better (or old_cost non-positive, margin undefined): switch
+    return prev_idx  # not clearly better: hold the previous path
+
+
 def reroute_reason(changes: list[dict], old_path, new_path, old_before: dict, old_now: dict) -> dict:
     on_old, on_new = _path_edges(old_path), _path_edges(new_path)
     relevant = []
@@ -69,11 +92,19 @@ def run_simulation(graph: nx.Graph, scenario: Scenario, recommender, cfg: dict, 
     history: list[dict] = []
     prev_rec = prev_features = None
     top_k = cfg["xai"]["top_k"]
+    hysteresis_margin = cfg.get("simulation", {}).get("hysteresis_margin", 0.0)
 
     for t in range(scenario.steps):
         changes = sim.step(t)
         g = sim.graph
         rec = recommender.recommend(g, scenario.src, scenario.dst, history=list(past))
+        raw_chosen = rec.chosen
+        held_prev = False
+        if prev_rec is not None:
+            new_chosen = apply_hysteresis(rec, prev_rec.path, hysteresis_margin)
+            if new_chosen != rec.chosen:
+                rec.chosen = new_chosen
+                held_prev = True
         chosen = rec.frame.loc[rec.chosen]
         events = sorted({c["cause"] for c in changes if c["cause"] not in BACKGROUND})
         drift_n = sum(c["cause"] in BACKGROUND for c in changes)
@@ -90,9 +121,14 @@ def run_simulation(graph: nx.Graph, scenario: Scenario, recommender, cfg: dict, 
             "rip_path": rip_route(g, scenario.src, scenario.dst).label,
             "ospf_path": ospf_route_from_config(g, scenario.src, scenario.dst, cfg).label,
             "candidates": [c.label for c in rec.candidates],
+            "held_by_hysteresis": held_prev,
+            "model_top_pick": rec.candidates[raw_chosen].label if held_prev else None,
             **{f"{u}-{v}.{m}": float(g.edges[u, v][m]) for u, v in event_edges for m in TRACKED},
         }
         log(f"\nt={t:02d} events: {', '.join(events) or 'none'}  (background drift/traffic updates: {drift_n})")
+        if held_prev:
+            log(f"      (model's top pick was {record['model_top_pick']}; held previous path, "
+                f"hysteresis margin {hysteresis_margin:.0%})")
         for u, v in event_edges:
             log(f"      {u}-{v}: " + ", ".join(f"{m}={g.edges[u, v][m]:.3f}" for m in TRACKED))
         log(f"      AI path: {record['path']}  predicted cost {record['predicted_cost']:.4f}  "

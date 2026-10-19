@@ -2,13 +2,16 @@ import copy
 import json
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+
+import pandas as pd
 
 from .helpers import sample_graph, tmp_dir, trained
 
 from src.config import load_config, resolve_path
 from src.errors import ConfigError
 from src.simulate.graph_sim import GraphSimulator, load_scenario, parse_scenario
-from src.simulate.runner import net_changes, run_simulation
+from src.simulate.runner import apply_hysteresis, net_changes, run_simulation
 from src.topology.load import EDGE_ATTRS, METRIC_SPEC
 
 BASE = {"name": "t", "src": "R1", "dst": "R8", "steps": 4, "seed": 1,
@@ -125,6 +128,77 @@ class TrafficScenarioTests(unittest.TestCase):
         again = run_simulation(sample_graph(), scenario, rec, cfg, tmp_dir(), lime=False, figures=False,
                                log=lambda *_: None)
         self.assertEqual([r["path"] for r in again["history"]], [r["path"] for r in result["history"]])
+
+
+class HysteresisTests(unittest.TestCase):
+    """Anti-flapping (follow-up to F-021): src/simulate/runner.py::apply_hysteresis."""
+
+    @staticmethod
+    def _rec(paths_costs: list[tuple[tuple, float]], chosen: int):
+        candidates = [SimpleNamespace(nodes=p) for p, _ in paths_costs]
+        frame = pd.DataFrame({"predicted_cost": [c for _, c in paths_costs]})
+        return SimpleNamespace(candidates=candidates, frame=frame, chosen=chosen)
+
+    def test_holds_a_near_tied_switch(self):
+        # new pick is only ~2% cheaper than the previous path: below a 5% margin, hold.
+        rec = self._rec([(("A", "B"), 0.50), (("A", "C"), 0.49)], chosen=1)
+        self.assertEqual(apply_hysteresis(rec, ("A", "B"), margin=0.05), 0)
+
+    def test_switches_on_a_clear_improvement(self):
+        # new pick is 20% cheaper: above a 5% margin, switch.
+        rec = self._rec([(("A", "B"), 0.50), (("A", "C"), 0.40)], chosen=1)
+        self.assertEqual(apply_hysteresis(rec, ("A", "B"), margin=0.05), 1)
+
+    def test_switches_when_previous_path_is_no_longer_a_candidate(self):
+        rec = self._rec([(("A", "C"), 0.49)], chosen=0)
+        self.assertEqual(apply_hysteresis(rec, ("A", "B"), margin=0.05), 0)
+
+    def test_zero_margin_never_holds(self):
+        rec = self._rec([(("A", "B"), 0.50), (("A", "C"), 0.499)], chosen=1)
+        self.assertEqual(apply_hysteresis(rec, ("A", "B"), margin=0.0), 1)
+
+    def test_no_previous_path_keeps_the_models_pick(self):
+        rec = self._rec([(("A", "B"), 0.50), (("A", "C"), 0.40)], chosen=1)
+        self.assertEqual(apply_hysteresis(rec, None, margin=0.05), 1)
+
+    def test_agreeing_pick_is_a_no_op(self):
+        rec = self._rec([(("A", "B"), 0.50), (("A", "C"), 0.40)], chosen=1)
+        self.assertEqual(apply_hysteresis(rec, ("A", "C"), margin=0.05), 1)
+
+    def test_shipped_traffic_scenario_flaps_less_with_hysteresis_on(self):
+        """Integration check: the default margin must not increase reroutes on the flapping
+        scenario (docs/phase-execution-status.md records 11 reroutes at margin 0)."""
+        base_cfg, rec, _, _ = trained()
+        scenario = load_scenario(resolve_path("configs/scenarios/traffic_dynamics.json"))
+        graph = sample_graph()
+
+        off_cfg = copy.deepcopy(base_cfg)
+        off_cfg["simulation"]["hysteresis_margin"] = 0.0
+        off = run_simulation(graph, scenario, rec, off_cfg, tmp_dir(), lime=False, figures=False,
+                             log=lambda *_: None)
+
+        on_cfg = copy.deepcopy(base_cfg)
+        on_cfg["simulation"]["hysteresis_margin"] = 0.03
+        on = run_simulation(graph, scenario, rec, on_cfg, tmp_dir(), lime=False, figures=False,
+                            log=lambda *_: None)
+
+        self.assertLessEqual(on["reroutes"], off["reroutes"])
+        held_steps = [r for r in on["history"] if r["held_by_hysteresis"]]
+        self.assertTrue(held_steps)
+        for r in held_steps:
+            self.assertFalse(r["rerouted"])
+            self.assertIsNotNone(r["model_top_pick"])
+
+    def test_sample_incident_still_reroutes_on_the_scripted_risk_event(self):
+        """A margin that stops noise-level flapping must not delay a genuine, large degradation."""
+        cfg, rec, _, _ = trained()
+        cfg = copy.deepcopy(cfg)
+        cfg["simulation"]["hysteresis_margin"] = 0.03
+        scenario = load_scenario(resolve_path(cfg["simulation"]["scenario"]))
+        result = run_simulation(sample_graph(), scenario, rec, cfg, tmp_dir(), lime=False, figures=False,
+                                log=lambda *_: None)
+        self.assertGreaterEqual(result["reroutes"], 1)
+        self.assertFalse(any(r["held_by_hysteresis"] for r in result["history"] if r["rerouted"]))
 
 
 if __name__ == "__main__":

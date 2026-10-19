@@ -151,6 +151,10 @@ def validate_config(cfg: dict, where: str = "config") -> dict:
 
     _require(cfg, "simulation", dict, where)
     _require(cfg["simulation"], "scenario", str, f"{where}.simulation")
+    margin = _finite(_require(cfg["simulation"], "hysteresis_margin", (int, float), f"{where}.simulation"),
+                     "hysteresis_margin", f"{where}.simulation", minimum=0)
+    if margin >= 1:
+        raise ConfigError(f"{where}.simulation: 'hysteresis_margin' must be < 1, got {margin}")
     _require(cfg, "topology_zoo", dict, where)
     return cfg
 
