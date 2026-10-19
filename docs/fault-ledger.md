@@ -19,20 +19,20 @@ Approve by ID. Do not treat “fix everything” as approval unless they list ID
 
 | ID | Sev | Status | Area | One-line |
 |----|-----|--------|------|----------|
-| F-001 | Med | open | docs | Title PDF path in overview does not match disk |
-| F-002 | Low | open | docs | Overview layout omits `docs/Spec/` and this ledger |
+| F-001 | Med | corrected | docs | Title PDF path in overview does not match disk |
+| F-002 | Low | corrected | docs | Overview layout omits `docs/Spec/` and this ledger |
 | F-003 | Med | corrected | process | P0 marked Done while several P0-adjacent gaps remain |
-| F-004 | Low | open | process | Standing checklist ticks bind/gitignore inconsistently |
+| F-004 | Low | corrected | process | Standing checklist ticks bind/gitignore inconsistently |
 | F-005 | Med | corrected | code | `load_graph` has no input validation or clear errors |
 | F-006 | Med | corrected | code | Package import assumes cwd = project dir (`src.*`) |
 | F-007 | Low | corrected | code | Silent drop of extra/missing edge attributes |
 | F-008 | Info | corrected | scope | P1–P7 modules are stubs (expected until those phases) |
 | F-009 | Low | corrected | docs | Overview eval asks for a non-explained AI baseline; P5 table does not |
 | F-010 | Low | corrected | docs | “Historical traffic” input is not in sample topology or `EDGE_ATTRS` |
-| F-011 | Low | open | skill | Course skill says stdlib sockets; capstone needs ML libs |
+| F-011 | Low | corrected | skill | Course skill says stdlib sockets; capstone needs ML libs |
 | F-012 | Low | corrected | test | `tests/` has no test for `load_graph` |
 | F-013 | Info | open | docs | Title claims *dynamic* routing; dynamics is optional P6 |
-| F-014 | Low | open | repo | No `pyproject.toml` / installable package |
+| F-014 | Low | corrected | repo | No `pyproject.toml` / installable package |
 | F-015 | Med | corrected | code | Hop-ordered k=5 candidates excluded the lowest-delay path (AI could not pick it) |
 | F-016 | Low | corrected | code | Parallel RF prediction gave last-bit differences between runs |
 | F-017 | Info | corrected | data | Topology Zoo site unreachable here; GitHub GraphML sources lack coordinates |
@@ -55,6 +55,7 @@ Approve by ID. Do not treat “fix everything” as approval unless they list ID
 | **Observed** | File on disk is `docs/Spec/Network Project Titles.pdf`. Overview tree shows `docs/Network Project Titles.pdf`. |
 | **Impact** | Broken pointer for anyone following the overview. |
 | **Proposed fix** (not applied) | Point the tree and Source line at `docs/Spec/Network Project Titles.pdf`. |
+| **Resolution** | 2026-10-19: overview §12 tree and the Source line now both point at `docs/Spec/Network Project Titles.pdf`. |
 
 ### F-002 — Folder tree out of date
 
@@ -66,6 +67,7 @@ Approve by ID. Do not treat “fix everything” as approval unless they list ID
 | **Observed** | Tree does not list `docs/Spec/`, `docs/fault-ledger.md`, or empty `labs/` / `reports/` gitkeeps. |
 | **Impact** | Layout doc drifts from the repo. |
 | **Proposed fix** | Update section 12 to match current paths. |
+| **Resolution** | 2026-10-19: overview §12 tree now lists `docs/Spec/`, `docs/concepts/`, `docs/web/`, `docs/phase-execution-status.md`, `docs/execution-plan.md`, `docs/xai-dynamic-routing-methods.md`, `docs/fault-ledger.md`, the `.cursor/skills/computer-networks/` skill, and the capstone's `pyproject.toml`, `packet_tracer/`, `web/`, and `outputs/mininet|packet_tracer/` subfolders. `labs/` and `reports/` are noted as empty with none required by the course so far. |
 
 ### F-003 — Phase 0 “Done” overstated
 
@@ -91,6 +93,7 @@ Approve by ID. Do not treat “fix everything” as approval unless they list ID
 | **Impact** | Checklist does not reflect repo state. |
 | **Proposed fix** | Tick gitignore item `[x]`; either untick bind until a server exists, or note “config only”. |
 | **Note (2026-10-04)** | The two standing items that are now true were ticked as checklist maintenance (lab-style CLI traces; gitignore of raw data/models, checked with `git status`). The bind item was not changed. |
+| **Resolution** | 2026-10-19: the bind item is no longer config-only — `web/app.py` now runs a real server (host publish `127.0.0.1:8765`, verified in `docs/phase-execution-status.md`'s web demo section), and `configs/default.json` sets `"bind": "127.0.0.1"`. All four standing-rule ticks in the phase plan now match the repo's actual state; no text change was needed there, only this ledger entry. |
 
 ### F-005 — `load_graph` validation
 
@@ -178,6 +181,7 @@ Approve by ID. Do not treat “fix everything” as approval unless they list ID
 | **Observed** | Skill: stdlib `socket`/`struct` unless asked otherwise. Capstone correctly uses NetworkX/sklearn/SHAP. |
 | **Impact** | Agent might refuse pandas/networkx on this project. |
 | **Proposed fix** | In `reference.md`: capstone under `projects/xai-dynamic-routing/` may use packages in that `requirements.txt`. |
+| **Resolution** | 2026-10-19: `SKILL.md`'s stdlib-only coding rule now says it applies to `labs/` and exempts the capstone; `reference.md` spells out the exemption and lists the allowed packages from `requirements.txt` (previously only the web stack was named as an exception). |
 
 ### F-012 — No test for M0
 
@@ -214,6 +218,7 @@ Approve by ID. Do not treat “fix everything” as approval unless they list ID
 | **Impact** | Same as F-006. |
 | **Proposed fix** | Minimal `pyproject.toml` or document `PYTHONPATH` only. May duplicate F-006. |
 | **Note (2026-10-04)** | Still open. Not needed for F-006 (scripts bootstrap the path). |
+| **Resolution** | 2026-10-19: added `projects/xai-dynamic-routing/pyproject.toml` (setuptools, package name `xai-dynamic-routing`, deps mirrored from `requirements.txt`, `httpx` as a `test` extra). Verified in a fresh venv: `pip install -e .` succeeds, and `from src.topology.load import load_graph` / `from src.features.path_features import candidate_paths` import cleanly from an unrelated directory (`/tmp`) with no `sys.path` hack. Does not replace F-006's script-level bootstrap, which still works unchanged for anyone who doesn't install the package. |
 
 ### F-015 — Candidate set could exclude the lowest-delay path
 

@@ -15,7 +15,7 @@
 | **Active phase** | None. P0–P7 implemented and verified, including LIME, outcome-based labels, the black-box baseline, and the Packet Tracer export (mock-tested). |
 | **Next action** | Run `outputs/packet_tracer/build_ospf.js` inside Packet Tracer and `verify` a tracert (only mock-tested so far); wire SNDlib traffic matrices into the traffic model; add an existing AI routing baseline (e.g. Q-routing); anti-flapping hysteresis. |
 | **Blocked by** | — |
-| **Faults** | Corrected: F-003, F-005–F-010, F-012, F-015–F-020. Open: F-001, F-002, F-004, F-011, F-013, F-014, F-021 ([fault-ledger.md](fault-ledger.md)) |
+| **Faults** | Corrected: F-001–F-012, F-014–F-020. Open: F-013, F-021 ([fault-ledger.md](fault-ledger.md)) |
 
 ---
 
@@ -126,6 +126,7 @@ Provenance: delay estimated from distance on 58/61 links (default 3), bandwidth 
 | 2026-10-12 | Fresh `.venv` + `pip install -r requirements.txt` verified (F-003). With `lime` installed, 3 tests failed on one bug (`exp.intercept` is a per-label dict); fixed, LIME verified (F-018). P4 done, M3 met with SHAP and LIME. |
 | 2026-10-12 | Merged the separate `xai-dynamic-routing` work: traffic model (`src/simulate/traffic.py`), history features (F-010), outcome labels with group + time split (F-020), black-box MLP baseline (F-009), extended held-out evaluation (snapshot rule, oracle), history-aware simulation + `traffic_dynamics` scenario, Packet Tracer integration (`src/packet_tracer/`, `scripts/packet_tracer.py`, Node PT-API mock). Zoo authors' mirror added to `fetch_topology_zoo.py` (F-017). 162 tests OK; `demo.py --retrain` end to end OK. |
 | 2026-10-12 | Web demo P1–P7 (F-019): FastAPI routes for every phase, 8-tab page, `scripts/web-local.cmd`, extended `web_health.py`, compose mounts for models/data/outputs; 172 tests OK. |
+| 2026-10-19 | Fault-ledger cleanup (user-approved F-001, F-002, F-004, F-011, F-014): overview §12 tree/PDF path fixed; stdlib-only coding rule scoped to `labs/` with the capstone's package list spelled out in `reference.md`; added `projects/xai-dynamic-routing/pyproject.toml`, verified with `pip install -e .` + import from outside the project dir. 173 tests still OK. |
 
 ---
 

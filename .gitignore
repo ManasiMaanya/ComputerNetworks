@@ -7,6 +7,9 @@ __pycache__/
 .env
 .env.*
 *.log
+*.egg-info/
+build/
+dist/
 
 # Raw datasets (Topology Zoo, SNDlib, CAIDA) stay local.
 projects/xai-dynamic-routing/data/raw/*
