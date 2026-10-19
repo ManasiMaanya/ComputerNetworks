@@ -2,7 +2,7 @@
 
 **Title:** Explainable AI-Based Dynamic Routing Recommendation System for Intelligent and Secure Computer Networks
 
-**Source:** Network Project Titles — item 4 (page 1), field details (page 5)
+**Source:** `docs/Spec/Network Project Titles.pdf` — item 4 (page 1), field details (page 5)
 
 **Layer focus:** Network layer (Layer 3) routing, with QoS and security metrics used as path-selection features.
 
@@ -140,15 +140,24 @@ Capstone code lives under `projects/xai-dynamic-routing/`. Course labs stay unde
 ComputerNetworks/
 ├── README.md
 ├── docs/
-│   ├── Network Project Titles.pdf
+│   ├── Spec/
+│   │   └── Network Project Titles.pdf
+│   ├── concepts/                      # CN concept notes + figures for this project
+│   ├── web/                           # web-phase-plan, backend/Docker docs
 │   ├── xai-dynamic-routing-overview.md
-│   └── xai-dynamic-routing-phase-plan.md
-├── labs/                              # CN lab programs (CRC, sockets, …)
-├── reports/                           # write-ups only if requested
+│   ├── xai-dynamic-routing-phase-plan.md
+│   ├── xai-dynamic-routing-methods.md
+│   ├── phase-execution-status.md      # live status board (refresh before commit)
+│   ├── execution-plan.md              # scripts you run, by phase
+│   └── fault-ledger.md                # logged faults; fix only on named-ID approval
+├── labs/                              # CN lab programs (CRC, sockets, …) — empty; none required by the course so far
+├── reports/                           # write-ups only if requested — empty; none required so far
+├── .cursor/skills/computer-networks/  # project Cursor skill (SKILL.md, reference.md, examples.md)
 └── projects/
     └── xai-dynamic-routing/
         ├── README.md                  # aim, how to run, ports
         ├── requirements.txt
+        ├── pyproject.toml             # pip install -e . support
         ├── configs/                   # topology size, model hyperparams, ports
         ├── data/
         │   ├── raw/                   # Topology Zoo, SNDlib, CAIDA dumps (gitignored if large)
@@ -162,15 +171,19 @@ ComputerNetworks/
         │   │   └── recommender.py     # learned path / next-hop scores
         │   ├── xai/                   # SHAP, LIME wrappers
         │   ├── simulate/              # Mininet/NS-3 adapters or Python graph sim
+        │   ├── packet_tracer/         # Packet Tracer build/verify integration
         │   └── evaluate/              # metrics vs baselines
         ├── notebooks/                 # EDA and explanation plots (optional)
         ├── models/                    # saved weights (gitignored except tiny demo)
         ├── outputs/
         │   ├── routes/                # recommended paths
         │   ├── explanations/          # SHAP/LIME artifacts
-        │   └── figures/
+        │   ├── figures/
+        │   ├── mininet/               # exported Mininet script
+        │   └── packet_tracer/         # exported PTBuilder scripts, IOS configs, GUIDE.md
         ├── tests/
-        └── scripts/                   # train, infer, compare_ospf_rip
+        ├── web/                       # FastAPI demo app + static front end
+        └── scripts/                   # train, infer, compare, demo, etc.
 ```
 
 Default bind for any local service: `127.0.0.1`. Document the port in `projects/xai-dynamic-routing/README.md`.
