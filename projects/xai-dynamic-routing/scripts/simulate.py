@@ -31,9 +31,13 @@ def main() -> int:
     parser.add_argument("--scenario", default=None, help="scenario JSON (default: config simulation.scenario)")
     parser.add_argument("--no-lime", action="store_true")
     parser.add_argument("--no-figures", action="store_true")
+    parser.add_argument("--hysteresis-margin", type=float, default=None,
+                        help="override config simulation.hysteresis_margin (0 disables anti-flapping)")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    if args.hysteresis_margin is not None:
+        cfg["simulation"]["hysteresis_margin"] = args.hysteresis_margin
     scen_path = resolve_input_path(args.scenario) if args.scenario else resolve_path(cfg["simulation"]["scenario"])
     scenario = load_scenario(scen_path)
     topo = resolve_input_path(scenario.topology) if scenario.topology else resolve_path(cfg["sample_topology"])
@@ -44,7 +48,7 @@ def main() -> int:
     print(f"scenario: {rel(scen_path)}  topology: {rel(topo)}  {scenario.src} -> {scenario.dst}  "
           f"steps={scenario.steps} seed={scenario.seed}")
     print(f"drift: {', '.join(scenario.drift_metrics) or 'none'} sigma={scenario.drift_sigma}  "
-          f"events: {len(scenario.events)}")
+          f"events: {len(scenario.events)}  hysteresis_margin={cfg['simulation']['hysteresis_margin']:.0%}")
     if scenario.description:
         print(scenario.description)
 
@@ -55,6 +59,8 @@ def main() -> int:
     banner("path history")
     for r in result["history"]:
         mark = "  <-- reroute" if r["rerouted"] else ""
+        if r.get("held_by_hysteresis"):
+            mark = f"  (held; model preferred {r['model_top_pick']})"
         print(f"t={r['step']:02d}  {r['path']:<22} pred={r['predicted_cost']:.4f}{mark}")
     print(f"\nreroutes: {result['reroutes']}")
     print(f"saved: {rel(out / 'history.csv')}, {rel(out / 'history.json')}"

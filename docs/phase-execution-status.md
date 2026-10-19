@@ -2,7 +2,7 @@
 
 **Canonical live board** for Title 4. Checklists and dependencies stay in [xai-dynamic-routing-phase-plan.md](xai-dynamic-routing-phase-plan.md). Methods: [xai-dynamic-routing-methods.md](xai-dynamic-routing-methods.md).
 
-**Last updated:** 2026-10-12 (outcome labels + traffic model + history features, black-box baseline, Packet Tracer integration; LIME verified)
+**Last updated:** 2026-10-19 (anti-flapping hysteresis in P6; fault-ledger cleanup)
 
 **Rule:** Before every git commit that touches this capstone or its docs, refresh this file: Last updated, phase table, current work, next action, execution log. Keep `docs/execution-plan.md` in sync with scripts the user can run.
 
@@ -13,7 +13,7 @@
 | Field | Value |
 |-------|--------|
 | **Active phase** | None. P0–P7 implemented and verified, including LIME, outcome-based labels, the black-box baseline, and the Packet Tracer export (mock-tested). |
-| **Next action** | Run `outputs/packet_tracer/build_ospf.js` inside Packet Tracer and `verify` a tracert (only mock-tested so far); wire SNDlib traffic matrices into the traffic model; add an existing AI routing baseline (e.g. Q-routing); anti-flapping hysteresis. |
+| **Next action** | Run `outputs/packet_tracer/build_ospf.js` inside Packet Tracer and `verify` a tracert (only mock-tested so far); wire SNDlib traffic matrices into the traffic model; add an existing AI routing baseline (e.g. Q-routing). |
 | **Blocked by** | — |
 | **Faults** | Corrected: F-001–F-012, F-014–F-020. Open: F-013, F-021 ([fault-ledger.md](fault-ledger.md)) |
 
@@ -29,7 +29,7 @@
 | P3 | Labels + recommender | **done** | complete | Outcome labels (realized cost over the next 5 steps of a simulated trace) + 6 history features; 44,160 rows / 8,832 queries / 108 groups; split by group and time. Held-out (601 queries): RF top-1 0.820, regret 0.0274 vs snapshot rule 0.830 / 0.0278, black-box MLP 0.800 / 0.0311, min delay 0.661 / 0.1234, hop count 0.597 / 0.2115; 207 better / 348 tie / 46 worse vs hop count, p = 7.2e-26 |
 | P4 | SHAP / LIME | **done** | complete | SHAP TreeExplainer: R1→R8 signed contributions, additivity error 6.8e-15, runner-up contrast, JSON + figure. LIME (2026-10-12): same instance, top condition `max_security_risk <= 0.35` (-0.355) agrees with SHAP's top feature; surrogate R² 0.13; LIME figure saved. |
 | P5 | Compare | **done** | complete | 7 sample pairs × RIP / OSPF / AI / AI-BB, 0 failures. Mean max risk: AI 0.279, OSPF 0.343, RIP 0.500. Mean delay: AI 23.0, OSPF 21.6, RIP 26.4 ms. CSV/MD/figure saved. |
-| P6 | Dynamics | **done** | complete | History-aware recommender. `sample_incident` 10 steps: reroute at t=5 (R4-R6 flagged high-risk) to R1-R3-R5-R7-R8, back at t=8 (R4-R6 recovers); the one-step congestion spike at t=3 is smoothed by history. `traffic_dynamics` (R2→R5, 30 steps, traffic model): 11 reroutes, incl. flapping. SHAP vs previous path each time. |
+| P6 | Dynamics | **done** | complete | History-aware recommender. `sample_incident` 10 steps: reroute at t=5 (R4-R6 flagged high-risk) to R1-R3-R5-R7-R8, back at t=8 (R4-R6 recovers); the one-step congestion spike at t=3 is smoothed by history. `traffic_dynamics` (R2→R5, 30 steps, traffic model): 11 reroutes at `hysteresis_margin=0` (incl. flapping between two near-tied paths), **7 with the default 3% margin** (anti-flapping, 2026-10-19) — `sample_incident`'s 2 genuine reroutes are unaffected. SHAP vs previous path each time. |
 | P7 | Datasets / testbed | **done** (Packet Tracer and Mininet not run on their platforms) | complete | GÉANT 2012 from the Zoo authors' mirror (GML with coordinates): 40 nodes / 61 links, delay from distance on 58/61 links, 12 pairs, 0 failures. Abilene also run. SNDlib loader (fixture-tested). Mininet script exported (not run). Packet Tracer: PTBuilder build/AI-route scripts + IOS configs + tracert verifier, tested against a PT-API mock (sample and real Abilene). |
 
 Statuses: `not_started` · `in_progress` · `blocked` · `done` · `skipped`
@@ -96,7 +96,7 @@ Provenance: delay estimated from distance on 58/61 links (default 3), bandwidth 
 
 ### Tests
 
-`python scripts/run_tests.py`: **172 tests, OK, 1 skipped** (`LimeMissingTests`, which only runs when `lime` is absent), ~65 s, in a fresh project venv. Includes `tests/test_packet_tracer.py`, which runs the generated PTBuilder scripts under Node against a PT-API mock.
+`python scripts/run_tests.py`: **181 tests, OK, 1 skipped** (`LimeMissingTests`, which only runs when `lime` is absent), ~65 s, in a fresh project venv. Includes `tests/test_packet_tracer.py`, which runs the generated PTBuilder scripts under Node against a PT-API mock, and `tests/test_simulation.py::HysteresisTests` (anti-flapping).
 
 ---
 
@@ -127,6 +127,7 @@ Provenance: delay estimated from distance on 58/61 links (default 3), bandwidth 
 | 2026-10-12 | Merged the separate `xai-dynamic-routing` work: traffic model (`src/simulate/traffic.py`), history features (F-010), outcome labels with group + time split (F-020), black-box MLP baseline (F-009), extended held-out evaluation (snapshot rule, oracle), history-aware simulation + `traffic_dynamics` scenario, Packet Tracer integration (`src/packet_tracer/`, `scripts/packet_tracer.py`, Node PT-API mock). Zoo authors' mirror added to `fetch_topology_zoo.py` (F-017). 162 tests OK; `demo.py --retrain` end to end OK. |
 | 2026-10-12 | Web demo P1–P7 (F-019): FastAPI routes for every phase, 8-tab page, `scripts/web-local.cmd`, extended `web_health.py`, compose mounts for models/data/outputs; 172 tests OK. |
 | 2026-10-19 | Fault-ledger cleanup (user-approved F-001, F-002, F-004, F-011, F-014): overview §12 tree/PDF path fixed; stdlib-only coding rule scoped to `labs/` with the capstone's package list spelled out in `reference.md`; added `projects/xai-dynamic-routing/pyproject.toml`, verified with `pip install -e .` + import from outside the project dir. 173 tests still OK. |
+| 2026-10-19 | Anti-flapping hysteresis in P6 (`src/simulate/runner.py::apply_hysteresis`, config `simulation.hysteresis_margin`, default 0.03): hold the previous path when the model's new top pick isn't at least `margin` cheaper and the previous path is still a candidate; a reroute still happens immediately when the previous path drops out of the candidate set or a clearly better path appears. `traffic_dynamics`: 11 → 7 reroutes. `sample_incident`'s 2 scripted reroutes (t=5, t=8) unaffected. `scripts/simulate.py --hysteresis-margin` overrides it; web demo timeline surfaces `held_by_hysteresis` / `model_top_pick`. 8 new tests (`tests/test_simulation.py::HysteresisTests`); 181 tests OK. |
 
 ---
 

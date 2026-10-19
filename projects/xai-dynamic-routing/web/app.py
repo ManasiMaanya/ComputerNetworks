@@ -424,6 +424,8 @@ def create_app(config_path: str | None = None) -> FastAPI:
             for r in result["history"]:
                 step = {"step": r["step"], "path": r["path"].split("-"), "rerouted": r["rerouted"],
                         "previous_path": r["previous_path"].split("-") if r["previous_path"] else None,
+                        "held_by_hysteresis": r.get("held_by_hysteresis", False),
+                        "model_top_pick": r["model_top_pick"].split("-") if r.get("model_top_pick") else None,
                         "events": r["events"], "background_updates": r["drift_changes"],
                         "predicted_cost": r["predicted_cost"], "rule_cost": r["rule_cost"],
                         "rip_path": r["rip_path"].split("-"), "ospf_path": r["ospf_path"].split("-"),
