@@ -1,9 +1,11 @@
-"""RIP vs OSPF-like vs AI on the same graph snapshot (Phase 5).
+"""RIP vs OSPF-like vs Q-routing vs AI on the same graph snapshot (Phase 5).
 
-Methods: RIP (hop count), OSPF (Dijkstra on the configured cost), AI (the explained Random
-Forest), and AI-BB (the black-box MLP baseline, fault F-009) when its model file exists. Both AI
-methods see the snapshot without traffic history (steady state); the history-aware comparison on
-simulated futures is the held-out evaluation in models/training_report.json.
+Methods: RIP (hop count), OSPF (Dijkstra on the configured cost), Q-ROUTE (the Q-routing baseline,
+src/routing/qrouting.py -- a classical method that, unlike RIP/OSPF, reacts to live congestion) when
+a trained model is passed in, AI (the explained Random Forest), and AI-BB (the black-box MLP
+baseline, fault F-009) when its model file exists. Both AI methods see the snapshot without traffic
+history (steady state); the history-aware comparison on simulated futures is the held-out
+evaluation in models/training_report.json.
 
 Every method's path is measured with the same P1 aggregation (extract_features) plus
 end-to-end path_loss = 1 - prod(1 - loss_i). Failures are kept as rows with status
@@ -28,10 +30,11 @@ import pandas as pd  # noqa: E402
 from ..errors import NoPathError, RoutingProjectError  # noqa: E402
 from ..features.path_features import extract_features, path_quality_metrics  # noqa: E402
 from ..routing.baselines import ospf_route_from_config, rip_route  # noqa: E402
+from ..routing.qrouting import qroute_route  # noqa: E402
 from ..routing.scoring import path_cost  # noqa: E402
 from ..xai.explain import explanation_snippet, shap_explanation  # noqa: E402
 
-METHODS = ("RIP", "OSPF", "AI", "AI-BB")
+METHODS = ("RIP", "OSPF", "Q-ROUTE", "AI", "AI-BB")
 REQUIRED_METRICS = ("sum_delay", "sum_loss", "max_security_risk", "hops")
 COLUMNS = ["topology", "src", "dst", "method", "status", "path", "hops", "route_cost", "route_cost_metric",
            "sum_delay", "sum_loss", "path_loss", "max_security_risk", "mean_congestion", "min_bandwidth",
@@ -48,7 +51,8 @@ def _measure(graph: nx.Graph, path, scoring: dict) -> dict:
             "min_reliability": feats["min_reliability"], "rule_cost": rule}
 
 
-def compare_pair(graph: nx.Graph, src, dst, cfg: dict, recommender, topology: str, blackbox=None) -> list[dict]:
+def compare_pair(graph: nx.Graph, src, dst, cfg: dict, recommender, topology: str, blackbox=None,
+                 qmodel=None) -> list[dict]:
     src, dst = str(src), str(dst)
     base = {"topology": topology, "src": src, "dst": dst}
     rows: list[dict] = []
@@ -79,8 +83,11 @@ def compare_pair(graph: nx.Graph, src, dst, cfg: dict, recommender, topology: st
         except RoutingProjectError as exc:
             rows.append({**base, "method": "AI-BB", "status": "error", "note": str(exc)})
 
-    for method, fn in (("RIP", lambda: rip_route(graph, src, dst)),
-                       ("OSPF", lambda: ospf_route_from_config(graph, src, dst, cfg))):
+    classical = [("RIP", lambda: rip_route(graph, src, dst)),
+                ("OSPF", lambda: ospf_route_from_config(graph, src, dst, cfg))]
+    if qmodel is not None:
+        classical.append(("Q-ROUTE", lambda: qroute_route(graph, src, dst, qmodel)))
+    for method, fn in classical:
         try:
             result = fn()
             rows.append({**base, "method": method, "status": "ok", "path": result.label,
@@ -113,9 +120,10 @@ def choose_pairs(graph: nx.Graph, cfg: dict, *, explicit=None, all_pairs=False, 
     return sorted(rng.sample(every, min(n, len(every))))
 
 
-def run_comparison(graph: nx.Graph, pairs, cfg: dict, recommender, topology: str, blackbox=None) -> pd.DataFrame:
+def run_comparison(graph: nx.Graph, pairs, cfg: dict, recommender, topology: str, blackbox=None,
+                   qmodel=None) -> pd.DataFrame:
     rows = [row for src, dst in pairs
-            for row in compare_pair(graph, src, dst, cfg, recommender, topology, blackbox)]
+            for row in compare_pair(graph, src, dst, cfg, recommender, topology, blackbox, qmodel)]
     return pd.DataFrame(rows).reindex(columns=COLUMNS)
 
 
@@ -141,7 +149,9 @@ def summarize(frame: pd.DataFrame) -> pd.DataFrame:
 def head_to_head(frame: pd.DataFrame) -> dict:
     ok = frame[frame["status"] == "ok"].set_index(["src", "dst", "method"])
     out = {}
-    for base in ("RIP", "OSPF"):
+    for base in ("RIP", "OSPF", "Q-ROUTE"):
+        if base not in set(frame["method"]):
+            continue
         stats = {"pairs": 0, "different_path": 0}
         for metric in ("sum_delay", "max_security_risk", "sum_loss", "hops"):
             stats[f"ai_lower_{metric}"] = stats[f"ai_higher_{metric}"] = 0
@@ -165,7 +175,7 @@ def comparison_figure(frame: pd.DataFrame, path: Path, title: str) -> None:
     fig, axes = plt.subplots(2, 2, figsize=(max(9, 0.9 * len(pairs) + 4), 7.5))
     methods = methods_in(frame)
     width = 0.8 / len(methods)
-    colors = {"RIP": "#7f8c8d", "OSPF": "#2471a3", "AI": "#c0392b", "AI-BB": "#d4a017"}
+    colors = {"RIP": "#7f8c8d", "OSPF": "#2471a3", "Q-ROUTE": "#27ae60", "AI": "#c0392b", "AI-BB": "#d4a017"}
     x = np.arange(len(pairs))
     for ax, metric in zip(axes.ravel(), REQUIRED_METRICS):
         for i, method in enumerate(methods):

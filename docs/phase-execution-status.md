@@ -2,7 +2,7 @@
 
 **Canonical live board** for Title 4. Checklists and dependencies stay in [xai-dynamic-routing-phase-plan.md](xai-dynamic-routing-phase-plan.md). Methods: [xai-dynamic-routing-methods.md](xai-dynamic-routing-methods.md).
 
-**Last updated:** 2026-10-19 (anti-flapping hysteresis in P6; fault-ledger cleanup)
+**Last updated:** 2026-10-19 (Q-routing baseline added to P5 compare; anti-flapping hysteresis in P6; fault-ledger cleanup)
 
 **Rule:** Before every git commit that touches this capstone or its docs, refresh this file: Last updated, phase table, current work, next action, execution log. Keep `docs/execution-plan.md` in sync with scripts the user can run.
 
@@ -13,7 +13,7 @@
 | Field | Value |
 |-------|--------|
 | **Active phase** | None. P0–P7 implemented and verified, including LIME, outcome-based labels, the black-box baseline, and the Packet Tracer export (mock-tested). |
-| **Next action** | Run `outputs/packet_tracer/build_ospf.js` inside Packet Tracer and `verify` a tracert (only mock-tested so far); wire SNDlib traffic matrices into the traffic model; add an existing AI routing baseline (e.g. Q-routing). |
+| **Next action** | Run `outputs/packet_tracer/build_ospf.js` inside Packet Tracer and `verify` a tracert (only mock-tested so far); wire SNDlib traffic matrices into the traffic model. |
 | **Blocked by** | — |
 | **Faults** | Corrected: F-001–F-012, F-014–F-020. Open: F-013, F-021 ([fault-ledger.md](fault-ledger.md)) |
 
@@ -28,7 +28,7 @@
 | P2 | RIP / OSPF baselines | **done** | complete | R1→R8 both R1-R2-R4-R6-R8; `--all-pairs`: 15/56 pairs differ (e.g. R2→R5 RIP R2-R5 1 hop/20 ms vs OSPF R2-R4-R3-R5 18 ms) |
 | P3 | Labels + recommender | **done** | complete | Outcome labels (realized cost over the next 5 steps of a simulated trace) + 6 history features; 44,160 rows / 8,832 queries / 108 groups; split by group and time. Held-out (601 queries): RF top-1 0.820, regret 0.0274 vs snapshot rule 0.830 / 0.0278, black-box MLP 0.800 / 0.0311, min delay 0.661 / 0.1234, hop count 0.597 / 0.2115; 207 better / 348 tie / 46 worse vs hop count, p = 7.2e-26 |
 | P4 | SHAP / LIME | **done** | complete | SHAP TreeExplainer: R1→R8 signed contributions, additivity error 6.8e-15, runner-up contrast, JSON + figure. LIME (2026-10-12): same instance, top condition `max_security_risk <= 0.35` (-0.355) agrees with SHAP's top feature; surrogate R² 0.13; LIME figure saved. |
-| P5 | Compare | **done** | complete | 7 sample pairs × RIP / OSPF / AI / AI-BB, 0 failures. Mean max risk: AI 0.279, OSPF 0.343, RIP 0.500. Mean delay: AI 23.0, OSPF 21.6, RIP 26.4 ms. CSV/MD/figure saved. |
+| P5 | Compare | **done** | complete | 7 sample pairs × RIP / OSPF / Q-ROUTE / AI / AI-BB, 0 failures. Mean max risk: AI 0.279, Q-ROUTE 0.314, OSPF 0.343, RIP 0.500. Mean delay: AI 23.0, Q-ROUTE 21.7, OSPF 21.6, RIP 26.4 ms. CSV/MD/figure saved. |
 | P6 | Dynamics | **done** | complete | History-aware recommender. `sample_incident` 10 steps: reroute at t=5 (R4-R6 flagged high-risk) to R1-R3-R5-R7-R8, back at t=8 (R4-R6 recovers); the one-step congestion spike at t=3 is smoothed by history. `traffic_dynamics` (R2→R5, 30 steps, traffic model): 11 reroutes at `hysteresis_margin=0` (incl. flapping between two near-tied paths), **7 with the default 3% margin** (anti-flapping, 2026-10-19) — `sample_incident`'s 2 genuine reroutes are unaffected. SHAP vs previous path each time. |
 | P7 | Datasets / testbed | **done** (Packet Tracer and Mininet not run on their platforms) | complete | GÉANT 2012 from the Zoo authors' mirror (GML with coordinates): 40 nodes / 61 links, delay from distance on 58/61 links, 12 pairs, 0 failures. Abilene also run. SNDlib loader (fixture-tested). Mininet script exported (not run). Packet Tracer: PTBuilder build/AI-route scripts + IOS configs + tracert verifier, tested against a PT-API mock (sample and real Abilene). |
 
@@ -44,14 +44,14 @@ Statuses: `not_started` · `in_progress` · `blocked` · `done` · `skipped`
 | M1 | P1 | Candidate paths + feature table | **yes** |
 | M2 | P2 | RIP path ≠ OSPF path on sample topo | **yes** (15/56 pairs) |
 | M3 | P4 | AI path + SHAP/LIME text and figure | **yes** (SHAP and LIME) |
-| M4 | P5 | RIP vs OSPF vs AI table | **yes** |
+| M4 | P5 | RIP vs OSPF vs AI table | **yes** (plus Q-routing, an existing dynamic-routing baseline) |
 | M5 | P6–P7 | Time-varying routes and/or Topology Zoo | **yes** (both; plus Packet Tracer export) |
 
 ---
 
 ## Web demo
 
-All tabs P0–P7 implemented (`web/app.py`, `web/static/`): topology with link details and metric colouring, candidate path features, RIP/OSPF overlay, AI recommendation vs black-box MLP, SHAP/LIME explanation with why-not-runner-up and a plain-English summary, RIP/OSPF/AI/AI-BB comparison with the held-out evaluation table, scenario timeline (play/slider, reroute reasons), and 300+ real topologies (Topology Zoo / SNDlib) with geographic layout. Start: `scripts\web-local.cmd`, open `http://127.0.0.1:8765/`. Verified 2026-10-12: `tests/test_web.py` (10 API tests), `scripts/web_health.py` (9/9 ok), and a headless-Chrome walk through every tab with no console errors. Docker path not re-run (Docker Desktop unavailable on that machine).
+All tabs P0–P7 implemented (`web/app.py`, `web/static/`): topology with link details and metric colouring, candidate path features, RIP/OSPF overlay, AI recommendation vs black-box MLP, SHAP/LIME explanation with why-not-runner-up and a plain-English summary, RIP/OSPF/Q-ROUTE/AI/AI-BB comparison with the held-out evaluation table, scenario timeline (play/slider, reroute reasons), and 300+ real topologies (Topology Zoo / SNDlib) with geographic layout. Start: `scripts\web-local.cmd`, open `http://127.0.0.1:8765/`. Verified 2026-10-12: `tests/test_web.py` (10 API tests), `scripts/web_health.py` (9/9 ok), and a headless-Chrome walk through every tab with no console errors. Docker path not re-run (Docker Desktop unavailable on that machine). `/api/compare` trains a fresh Q-routing model per request (2026-10-19) — cheap on these graph sizes, so no caching was added.
 
 ## Measured results (seed 42, default config)
 
@@ -78,10 +78,11 @@ Reading: both AI models are far better than RIP-like/OSPF-like picks, and the ex
 |--------|---------------:|---------:|------------------:|-----:|-----------:|
 | RIP | 26.43 | 0.0800 | 0.500 | 3.00 | 0.990 |
 | OSPF (delay) | 21.57 | 0.0586 | 0.343 | 3.29 | 0.413 |
+| Q-ROUTE | 21.71 | 0.0564 | 0.314 | 3.29 | 0.400 |
 | AI | 23.00 | 0.0571 | 0.279 | 3.57 | 0.396 |
 | AI-BB (black-box) | 23.00 | 0.0571 | 0.279 | 3.57 | 0.396 |
 
-\* `rule_cost` is the objective (reference only). On a static snapshot both AI models pick the same routes here; the AI trades about +1.4 ms mean delay against OSPF for lower link risk and loss.
+\* `rule_cost` is the objective (reference only). On a static snapshot both AI models pick the same routes here; the AI trades about +1.4 ms mean delay against OSPF for lower link risk and loss. Q-ROUTE (delay-and-congestion-reactive) differs from OSPF (static delay) on 1 of the 7 sample pairs: R3→R8, where OSPF's lower-raw-delay R3-R4-R6-R8 is more congested than Q-ROUTE's R3-R5-R7-R8 (head-to-head: AI vs Q-ROUTE different path in 2/7 pairs).
 
 ### P7 GÉANT 2012 (12 seeded pairs, GML with coordinates)
 
@@ -96,7 +97,7 @@ Provenance: delay estimated from distance on 58/61 links (default 3), bandwidth 
 
 ### Tests
 
-`python scripts/run_tests.py`: **181 tests, OK, 1 skipped** (`LimeMissingTests`, which only runs when `lime` is absent), ~65 s, in a fresh project venv. Includes `tests/test_packet_tracer.py`, which runs the generated PTBuilder scripts under Node against a PT-API mock, and `tests/test_simulation.py::HysteresisTests` (anti-flapping).
+`python scripts/run_tests.py`: **190 tests, OK, 1 skipped** (`LimeMissingTests`, which only runs when `lime` is absent), ~51 s, in a fresh project venv. Includes `tests/test_packet_tracer.py`, which runs the generated PTBuilder scripts under Node against a PT-API mock, `tests/test_simulation.py::HysteresisTests` (anti-flapping), and `tests/test_qrouting.py` (Q-routing baseline: cost formula, convergence to the exact Dijkstra-optimal path under frozen traffic, reacts to congestion unlike static OSPF, disconnected/invalid-node errors).
 
 ---
 
@@ -128,6 +129,7 @@ Provenance: delay estimated from distance on 58/61 links (default 3), bandwidth 
 | 2026-10-12 | Web demo P1–P7 (F-019): FastAPI routes for every phase, 8-tab page, `scripts/web-local.cmd`, extended `web_health.py`, compose mounts for models/data/outputs; 172 tests OK. |
 | 2026-10-19 | Fault-ledger cleanup (user-approved F-001, F-002, F-004, F-011, F-014): overview §12 tree/PDF path fixed; stdlib-only coding rule scoped to `labs/` with the capstone's package list spelled out in `reference.md`; added `projects/xai-dynamic-routing/pyproject.toml`, verified with `pip install -e .` + import from outside the project dir. 173 tests still OK. |
 | 2026-10-19 | Anti-flapping hysteresis in P6 (`src/simulate/runner.py::apply_hysteresis`, config `simulation.hysteresis_margin`, default 0.03): hold the previous path when the model's new top pick isn't at least `margin` cheaper and the previous path is still a candidate; a reroute still happens immediately when the previous path drops out of the candidate set or a clearly better path appears. `traffic_dynamics`: 11 → 7 reroutes. `sample_incident`'s 2 scripted reroutes (t=5, t=8) unaffected. `scripts/simulate.py --hysteresis-margin` overrides it; web demo timeline surfaces `held_by_hysteresis` / `model_top_pick`. 8 new tests (`tests/test_simulation.py::HysteresisTests`); 181 tests OK. |
+| 2026-10-19 | Q-routing baseline added to P5 compare (`src/routing/qrouting.py`): a classical, traffic-reactive method (Boyan & Littman, 1994) alongside RIP/OSPF, so the comparison has "an existing AI routing method" per the course brief. Cost = `delay_ms * (1 + congestion)` (this project's traffic model doesn't vary delay, so a pure-delay Q-routing would be identical to OSPF); table trained once per topology via TD(0) over `generate_trace`, config `qrouting.{train_steps,learning_rate,discount,seed}` = 60/0.7/1.0/11. Wired into `compare_pair`/`run_comparison` (new optional `qmodel` param), `head_to_head`, `comparison_figure`'s colours, `scripts/compare.py` (trains it once per run), and `web/app.py`'s `/api/compare`. Verified: unit tests show it converges onto the exact Dijkstra-optimal path under frozen (noise-free) traffic, and picks a different, less-congested path than static OSPF on a hand-built example; a real `scripts/compare.py` run on the sample topology shows it as its own row (sum_delay 21.71 vs OSPF 21.57, max_security_risk 0.314 vs OSPF 0.343) and differing from OSPF's path on 1/7 sample pairs (R3→R8). 9 new tests (`tests/test_qrouting.py`, `tests/test_config.py::test_qrouting_keys`); 190 tests OK. |
 
 ---
 

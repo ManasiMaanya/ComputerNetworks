@@ -155,6 +155,19 @@ def validate_config(cfg: dict, where: str = "config") -> dict:
                      "hysteresis_margin", f"{where}.simulation", minimum=0)
     if margin >= 1:
         raise ConfigError(f"{where}.simulation: 'hysteresis_margin' must be < 1, got {margin}")
+
+    qrouting = _require(cfg, "qrouting", dict, where)
+    _positive_int(qrouting, "train_steps", f"{where}.qrouting")
+    _require(qrouting, "seed", int, f"{where}.qrouting")
+    lr = _finite(_require(qrouting, "learning_rate", (int, float), f"{where}.qrouting"),
+                "learning_rate", f"{where}.qrouting", minimum=0, strict=True)
+    if lr > 1:
+        raise ConfigError(f"{where}.qrouting: 'learning_rate' must be <= 1, got {lr}")
+    discount = _finite(_require(qrouting, "discount", (int, float), f"{where}.qrouting"),
+                       "discount", f"{where}.qrouting", minimum=0, strict=True)
+    if discount > 1:
+        raise ConfigError(f"{where}.qrouting: 'discount' must be <= 1, got {discount}")
+
     _require(cfg, "topology_zoo", dict, where)
     return cfg
 

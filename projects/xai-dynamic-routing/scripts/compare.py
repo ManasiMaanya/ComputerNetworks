@@ -1,4 +1,4 @@
-"""Phase 5: RIP-like vs OSPF-like vs AI on the same graph snapshot, several pairs.
+"""Phase 5: RIP-like vs OSPF-like vs Q-routing vs AI on the same graph snapshot, several pairs.
 
     python scripts/compare.py                              # sample topology, pairs from config
     python scripts/compare.py --all-pairs
@@ -30,6 +30,7 @@ from src.evaluate.compare import (
     run_comparison,
     summarize,
 )
+from src.routing.qrouting import train_qrouting
 from src.routing.recommender import RouteRecommender
 from src.topology.provenance import provenance_summary
 
@@ -62,12 +63,13 @@ def main() -> int:
         blackbox = RouteRecommender.load(project_dir(cfg, "models_dir"), cfg, blackbox=True)
     except ModelError:
         blackbox = None
+    qmodel = train_qrouting(graph, cfg)
     name = graph.graph.get("name", topo.stem)
     is_sample = topo.resolve() == resolve_path(cfg["sample_topology"])
     pairs = choose_pairs(graph, cfg, explicit=parse_pairs(args.pairs) if args.pairs else None,
                          all_pairs=args.all_pairs, random_pairs=args.random_pairs, is_sample=is_sample)
 
-    banner(f"Phase 5: RIP vs OSPF vs AI on {name}")
+    banner(f"Phase 5: RIP vs OSPF vs Q-routing vs AI on {name}")
     print(f"topology: {rel(topo)}  nodes={graph.number_of_nodes()} edges={graph.number_of_edges()} "
           f"components={graph.graph.get('components')}  ospf_cost={cfg['ospf_cost']}  pairs={len(pairs)}")
     prov = provenance_summary(graph)
@@ -78,8 +80,10 @@ def main() -> int:
         print("warning: config 'scoring' changed since training; retrain for consistent AI routes")
     if blackbox is None:
         print("note: no black-box model in models/ (AI-BB column skipped); rerun scripts/train.py")
+    print(f"note: trained a fresh Q-routing baseline on this topology "
+          f"({cfg['qrouting']['train_steps']} traffic-trace steps, lr={cfg['qrouting']['learning_rate']})")
 
-    frame = run_comparison(graph, pairs, cfg, recommender, name, blackbox)
+    frame = run_comparison(graph, pairs, cfg, recommender, name, blackbox, qmodel)
     for (src, dst), group in frame.groupby(["src", "dst"], sort=False):
         print(f"\n{src} -> {dst}")
         for row in group.itertuples(index=False):
@@ -115,7 +119,9 @@ def main() -> int:
     meta = {"topology": name, "file": rel(topo), "nodes": graph.number_of_nodes(),
             "edges": graph.number_of_edges(), "ospf_cost": cfg["ospf_cost"],
             "k_candidate_paths": cfg["k_candidate_paths"], "max_hops": cfg["max_hops"],
-            "model_scoring_fingerprint": recommender.schema["scoring_fingerprint"], "pairs": len(pairs)}
+            "model_scoring_fingerprint": recommender.schema["scoring_fingerprint"], "pairs": len(pairs),
+            "qrouting_train_steps": cfg["qrouting"]["train_steps"],
+            "qrouting_learning_rate": cfg["qrouting"]["learning_rate"]}
     if prov:
         meta["metric_provenance"] = json.dumps(prov)
     frame.to_csv(csv_path, index=False)

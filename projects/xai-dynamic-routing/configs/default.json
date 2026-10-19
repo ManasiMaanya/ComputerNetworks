@@ -90,6 +90,13 @@
     "hysteresis_margin": 0.03
   },
 
+  "qrouting": {
+    "train_steps": 60,
+    "learning_rate": 0.7,
+    "discount": 1.0,
+    "seed": 11
+  },
+
   "topology_zoo": {
     "propagation_km_per_ms": 200.0,
     "per_hop_processing_ms": 0.5,

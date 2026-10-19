@@ -168,6 +168,7 @@ ComputerNetworks/
         │   ├── features/              # delay, loss, risk, utilization, …
         │   ├── routing/
         │   │   ├── baselines.py       # OSPF-like SPF, RIP-like hop count
+        │   │   ├── qrouting.py        # Q-routing baseline (traffic-reactive, classical)
         │   │   └── recommender.py     # learned path / next-hop scores
         │   ├── xai/                   # SHAP, LIME wrappers
         │   ├── simulate/              # Mininet/NS-3 adapters or Python graph sim

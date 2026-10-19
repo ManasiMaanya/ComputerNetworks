@@ -15,6 +15,7 @@ from src.evaluate.compare import (
     summarize,
 )
 from src.features.path_features import extract_features, path_quality_metrics
+from src.routing.qrouting import train_qrouting
 from src.routing.recommender import RouteRecommender
 from src.topology.load import load_graph
 
@@ -25,8 +26,9 @@ class CompareTests(unittest.TestCase):
         cls.cfg, cls.rec, _, _ = trained()
         cls.graph = sample_graph()
         cls.blackbox = RouteRecommender.load(cls.rec.models_dir, cls.cfg, blackbox=True)
+        cls.qmodel = train_qrouting(cls.graph, cls.cfg)
         cls.frame = run_comparison(cls.graph, [("R1", "R8"), ("R2", "R5"), ("R2", "R7")], cls.cfg, cls.rec, "s",
-                                   cls.blackbox)
+                                   cls.blackbox, cls.qmodel)
 
     def test_every_method_per_pair_same_snapshot(self):
         self.assertEqual(list(self.frame.columns), COLUMNS)
@@ -69,12 +71,13 @@ class CompareTests(unittest.TestCase):
         self.assertEqual(list(summary["method"]), list(METHODS))
         h2h = head_to_head(self.frame)
         self.assertEqual(h2h["RIP"]["pairs"], 3)
+        self.assertEqual(h2h["Q-ROUTE"]["pairs"], 3)
         text = markdown_report(self.frame, summary, h2h, {"topology": "s"})
         self.assertIn("| src | dst | method |", text)
-        self.assertEqual(text.count("\n| R2 | R7 |"), 4)
+        self.assertEqual(text.count("\n| R2 | R7 |"), 5)
         csv = work / "c.csv"
         self.frame.to_csv(csv, index=False)
-        self.assertEqual(len(pd.read_csv(csv)), 12)
+        self.assertEqual(len(pd.read_csv(csv)), 15)
         png = work / "c.png"
         comparison_figure(self.frame, png, "t")
         self.assertEqual(png.read_bytes()[:4], b"\x89PNG")

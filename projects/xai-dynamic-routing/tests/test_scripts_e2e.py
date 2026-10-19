@@ -67,8 +67,8 @@ class ScriptPipelineTests(unittest.TestCase):
     def test_4_compare_sample_and_zoo(self):
         self.ok(self.script("compare.py"))
         frame = pd.read_csv(self.out / "reports" / "compare_sample_topology.csv")
-        self.assertEqual(len(frame), 4 * len(self.cfg["compare"]["pairs"]))
-        self.assertEqual(set(frame["method"]), {"RIP", "OSPF", "AI", "AI-BB"})
+        self.assertEqual(len(frame), 5 * len(self.cfg["compare"]["pairs"]))
+        self.assertEqual(set(frame["method"]), {"RIP", "OSPF", "Q-ROUTE", "AI", "AI-BB"})
         self.assertTrue((self.out / "reports" / "compare_sample_topology.md").exists())
         self.assertTrue((self.out / "figures" / "compare_sample_topology.png").exists())
         out = self.ok(self.script("compare.py", "--topology", FIXTURES / "zoo_mini.gml", "--all-pairs"))

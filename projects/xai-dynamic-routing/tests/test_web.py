@@ -92,8 +92,8 @@ class WebApiTests(unittest.TestCase):
 
     def test_p5_compare_and_evaluation(self):
         data = self.get("/api/compare", pairs="R1:R8,R2:R5")
-        self.assertEqual({r["method"] for r in data["rows"]}, {"RIP", "OSPF", "AI", "AI-BB"})
-        self.assertEqual(len(data["rows"]), 8)
+        self.assertEqual({r["method"] for r in data["rows"]}, {"RIP", "OSPF", "Q-ROUTE", "AI", "AI-BB"})
+        self.assertEqual(len(data["rows"]), 10)
         self.assertEqual(data["summary"][0]["pairs"], 2)
         evaluation = self.get("/api/evaluation")
         self.assertEqual(evaluation["methods"]["oracle"]["mean_regret"], 0.0)
