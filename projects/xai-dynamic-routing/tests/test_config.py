@@ -93,6 +93,19 @@ class ConfigTests(unittest.TestCase):
         self.bad(lambda c: c.pop("traffic"), "traffic")
         self.bad(lambda c: c["traffic"].update(burst_prob=2), "burst_prob")
 
+    def test_simulation_hysteresis_margin(self):
+        self.bad(lambda c: c["simulation"].update(hysteresis_margin=1), "hysteresis_margin")
+        self.bad(lambda c: c["simulation"].update(hysteresis_margin=-0.1), "hysteresis_margin")
+
+    def test_qrouting_keys(self):
+        self.bad(lambda c: c.pop("qrouting"), "qrouting")
+        self.bad(lambda c: c["qrouting"].update(train_steps=0), "train_steps")
+        self.bad(lambda c: c["qrouting"].update(learning_rate=1.5), "learning_rate")
+        self.bad(lambda c: c["qrouting"].update(learning_rate=-0.1), "learning_rate")
+        self.bad(lambda c: c["qrouting"].update(discount=1.1), "discount")
+        self.bad(lambda c: c["qrouting"].update(discount=-0.1), "discount")
+        self.bad(lambda c: c["qrouting"].update(seed=1.5), "seed")
+
 
 if __name__ == "__main__":
     unittest.main()

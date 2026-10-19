@@ -21,6 +21,8 @@ data/raw/*.txt       ──► src/topology/sndlib.py    SNDlib native import + 
           ▼               ▼                              ▼
  src/routing/baselines.py  src/routing/scoring.py   src/routing/dataset.py
  RIP-like, OSPF-like [P2]  rule cost (objective)[P3] outcome labels, group+time split [P3]
+ src/routing/qrouting.py
+ Q-routing baseline [P5]
           │               └──────────────┬───────────────┘
           │                              ▼
           │               src/routing/recommender.py  Random Forest + black-box MLP, eval [P3]
@@ -28,7 +30,7 @@ data/raw/*.txt       ──► src/topology/sndlib.py    SNDlib native import + 
           │                              ▼
           │               src/xai/explain.py           SHAP + LIME, JSON, figures      [P4]
           ▼                              │
- src/evaluate/compare.py ◄───────────────┤             RIP vs OSPF vs AI               [P5]
+ src/evaluate/compare.py ◄───────────────┤             RIP vs OSPF vs Q-routing vs AI   [P5]
                                          ▼
  src/simulate/graph_sim.py + runner.py                 time steps, reroutes            [P6]
  src/simulate/mininet_export.py                        Mininet script export           [P7]
@@ -65,6 +67,8 @@ Python: 3.12 is tested (3.10+ is required for the type syntax). Dependencies: `r
 | `paths.*` | `models`, `outputs`, `data/processed`, `data/raw` | Artifact folders |
 | `compare.pairs`, `random_pairs` | 7 sample pairs, 12 | Comparison pairs (§7) |
 | `simulation.scenario` | `configs/scenarios/sample_incident.json` | Default P6 scenario |
+| `simulation.hysteresis_margin` | 0.03 | P6 anti-flapping: hold the previous path unless the new pick is this much cheaper (relative); 0 disables it (§8) |
+| `qrouting.train_steps`, `learning_rate`, `discount`, `seed` | 60, 0.7, 1.0, 11 | Q-routing baseline training (§7) |
 | `topology_zoo.*` | see file | Import defaults (§9) |
 
 `src/config.py` validates every key on load (types, ranges, allowed values) and names the bad key in the error. Changing `scoring` after training makes the saved model stale. `infer.py` and `compare.py` detect this from a fingerprint in `models/feature_schema.json` and print a warning.
@@ -256,6 +260,17 @@ For each pair, on one graph object (same snapshot):
 
 - **RIP**: Dijkstra with unit link cost. Cost = hops.
 - **OSPF**: Dijkstra on `ospf_cost`. `--ospf-cost inverse_bandwidth` overrides the config for real topologies, where delays are defaults.
+- **Q-ROUTE** (`src/routing/qrouting.py`): a classical, traffic-reactive baseline from the
+  literature (Boyan & Littman, 1994), included so the comparison has "an existing AI routing
+  method" alongside the project's own model, per the course brief. Every node keeps a table
+  estimating delivery cost to each destination via each neighbour and greedily forwards to the
+  cheapest; cost = `delay_ms * (1 + congestion)`, since this project's traffic model only varies
+  congestion/loss/security_risk (delay is static — §5.1), so a pure-delay Q-routing would be
+  identical to static OSPF. The table is trained once per topology, offline, by replaying
+  `generate_trace` with TD(0) backups (`qrouting.train_steps/learning_rate/discount/seed`) —
+  matching RIP/OSPF's per-graph, non-persisted pattern rather than the AI models' saved artifacts.
+  Included whenever `scripts/compare.py` / the web demo's `/api/compare` run (always); omitted from
+  a `compare_pair`/`run_comparison` call that passes no `qmodel`.
 - **AI**: the recommender's pick. Cost = predicted cost. Includes a SHAP snippet.
 - **AI-BB**: the black-box MLP's pick (when `models/route_cost_mlp.joblib` exists). No explanation.
 
@@ -264,7 +279,7 @@ comparison on simulated futures is the held-out evaluation (§5.6).
 
 Each method's path is re-measured with the P1 aggregation: `hops`, `sum_delay`, `sum_loss`, `path_loss`, `max_security_risk`, `mean_congestion`, `min_bandwidth`, `min_reliability`, and `rule_cost`. `rule_cost` is the AI's own objective, so it favours the AI by construction and is shown for reference only. The four method-neutral metrics are delay, loss, max risk, and hops.
 
-A pair where a method fails is kept as a row with `status` = `no_path` (disconnected, or over hop limit) or `error` (e.g. unknown node). The summary averages only pairs where all three methods succeeded and states that count.
+A pair where a method fails is kept as a row with `status` = `no_path` (disconnected, or over hop limit) or `error` (e.g. unknown node). The summary averages only pairs where every method present in the run succeeded, and states that count.
 
 Pair selection: the config list for the sample graph, `--pairs`, `--all-pairs`, seeded `--random-pairs`, or the largest SNDlib demands.
 
@@ -301,7 +316,7 @@ The shipped `sample_incident` scenario (R1→R8, 10 steps):
 
 The scenario changes only metrics. The model decides whether and where to reroute; no path is scripted. With the history-aware model it reroutes at t=5 (when R4-R6 is flagged high-risk) and back at t=8; it does not react to the single-step congestion spike at t=3, because the 5-step history smooths it.
 
-The `traffic_dynamics` scenario runs R2→R5 for 30 steps under the traffic model with no scripted events. R2→R5's two best candidates are close, so ordinary dynamics flip the recommendation: 11 reroutes in 30 steps, several back-and-forth (route flapping; no hysteresis is applied).
+The `traffic_dynamics` scenario runs R2→R5 for 30 steps under the traffic model with no scripted events. R2→R5's two best candidates are close, so ordinary dynamics flip the recommendation: 11 reroutes in 30 steps at `hysteresis_margin=0`, several back-and-forth (route flapping). The default `hysteresis_margin=0.03` holds the previous path unless the model's new pick is at least 3% (relative) cheaper, which cuts this to 7 reroutes without delaying the genuine, large degradation in `sample_incident` (still rerouted immediately there). The margin is applied only in the P6 runner (`run_simulation`), not in `RouteRecommender.recommend` itself, so a one-off query (`infer.py`, `/api/infer`) is unaffected.
 
 Outputs: `outputs/simulations/<name>/history.{csv,json}`, `timeline.png`, and `explain_<name>_stepNN.json` / `shap_<name>_stepNN.png` per explained step.
 
@@ -408,7 +423,7 @@ All generated outputs are gitignored. Regenerate them with `python scripts/demo.
 
 ## 11. Tests
 
-`python scripts/run_tests.py` (stdlib `unittest`; `pytest tests` also works if installed). Integration tests train a small model once into a temp folder, so the real `models/` is never touched. `tests/test_scripts_e2e.py` runs every CLI script with a temp config and checks the files it writes. The LIME test is skipped, with the reason printed, when `lime` is not installed. `tests/test_packet_tracer.py` runs the generated PTBuilder scripts under Node against `tests/js/pt_mock.js` (skipped if Node.js is missing). 162 tests.
+`python scripts/run_tests.py` (stdlib `unittest`; `pytest tests` also works if installed). Integration tests train a small model once into a temp folder, so the real `models/` is never touched. `tests/test_scripts_e2e.py` runs every CLI script with a temp config and checks the files it writes. The LIME test is skipped, with the reason printed, when `lime` is not installed. `tests/test_packet_tracer.py` runs the generated PTBuilder scripts under Node against `tests/js/pt_mock.js` (skipped if Node.js is missing). 190 tests.
 
 ---
 
@@ -416,7 +431,8 @@ All generated outputs are gitignored. Regenerate them with `python scripts/demo.
 
 - The objective is a hand-set scoring rule. With `future_outcome` labels the model predicts the rule cost a path will experience, so it no longer just imitates the rule; but "good" is still defined by those weights, and the futures come from a simulated traffic model (§5.1), not measured traffic.
 - Under the default traffic model the explained RF roughly ties the snapshot rule on held-out data (status board): bursts rarely change which candidate is best, so history adds little. RIP-like and OSPF-like picks are far worse.
-- No hysteresis: under continuous traffic dynamics, near-tied pairs flap between routes (`traffic_dynamics`).
+- The default hysteresis margin (3%) only holds near-tied switches; under continuous traffic dynamics with genuinely close candidates it still flaps occasionally (`traffic_dynamics`: 7 reroutes in 30 steps, down from 11 with the margin off).
+- Q-routing is a single-objective (delay + congestion only) baseline, trained offline on a synthetic trace rather than online per-packet as in the original algorithm; it is a point of comparison for "an existing dynamic routing method", not a reimplementation of a production Q-routing deployment.
 - Candidates are limited to `k` paths (default 5) from `mixed` Yen. A better path outside that set cannot be chosen.
 - The sample graph is synthetic. Imported Zoo/SNDlib graphs use synthetic QoS/risk values and, for GraphML sources, default delays (all labelled).
 - Simulation is a discrete metric-update model with no packets, queues, or protocol convergence timing. The Mininet export and the Packet Tracer scripts are untested on those platforms here.

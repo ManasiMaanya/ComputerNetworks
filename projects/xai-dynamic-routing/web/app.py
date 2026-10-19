@@ -10,7 +10,7 @@ scripts compute:
     GET  /api/baselines?topology=&src=&dst=      RIP-like, OSPF-like (delay and 10^8/bw)         [P2]
     POST /api/infer {topology, src, dst}         AI ranking (+ black-box pick if trained)        [P3]
     GET  /api/explain?topology=&src=&dst=&lime=  SHAP, contrast vs runner-up, LIME, summary      [P4]
-    GET  /api/compare?topology=&pairs=           RIP vs OSPF vs AI vs AI-BB on several pairs     [P5]
+    GET  /api/compare?topology=&pairs=           RIP vs OSPF vs Q-routing vs AI vs AI-BB          [P5]
     GET  /api/evaluation                         held-out results from models/training_report    [P3/P5]
     GET  /api/scenarios, /api/simulate?scenario= time-stepped scenario with reroutes             [P6]
 
@@ -48,6 +48,7 @@ from src.features.path_features import (  # noqa: E402
     path_quality_metrics,
 )
 from src.routing.baselines import ospf_route, rip_route  # noqa: E402
+from src.routing.qrouting import train_qrouting  # noqa: E402
 from src.routing.recommender import BLACKBOX_FILE, MODEL_FILE, REPORT_FILE, RouteRecommender  # noqa: E402
 from src.routing.scoring import path_cost  # noqa: E402
 from src.simulate.graph_sim import load_scenario  # noqa: E402
@@ -356,6 +357,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
         graph, name, path, _ = state.graph(topology)
         rec = state.recommender()
         bb = state.blackbox_or_none()
+        qm = train_qrouting(graph, state.cfg)
 
         def run():
             explicit = None
@@ -368,7 +370,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
                     explicit.append((a.strip(), b.strip()))
             chosen = choose_pairs(graph, state.cfg, explicit=explicit, random_pairs=random_pairs,
                                   is_sample=topology == SAMPLE_ID)
-            frame = run_comparison(graph, chosen, state.cfg, rec, name, bb)
+            frame = run_comparison(graph, chosen, state.cfg, rec, name, bb, qm)
             summary = summarize(frame)
             return {"topology": name, "pairs": [list(p) for p in chosen], "rows": _records(frame),
                     "summary": _records(summary) if not summary.empty else [],
