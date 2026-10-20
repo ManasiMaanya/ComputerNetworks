@@ -384,6 +384,9 @@ The script is generated and syntax-checked only. Running it needs Linux, Mininet
 - `ai_routes.js` / `ai_routes_undo.js` — static routes (AD 1, beating OSPF 110 / RIP 120) that pin
   chosen pairs to the AI's path in both directions; conflicting per-destination routes are
   rejected. By default it picks up to 3 pairs where the AI's path differs from every OSPF path.
+  `export --no-ai` skips the model entirely and writes only the OSPF/RIP build scripts, configs,
+  manifest and guide (no `ai_routes*.js`), so the PT build works before `scripts/train.py` has run
+  and on machines without the ML stack; the recommender import is lazy for that reason.
 - `configs/<protocol>/<router>.txt` (manual fallback), `manifest.json`, and `GUIDE.md` with the
   steps and the router path `tracert` should show in each configuration.
 
@@ -423,7 +426,7 @@ All generated outputs are gitignored. Regenerate them with `python scripts/demo.
 
 ## 11. Tests
 
-`python scripts/run_tests.py` (stdlib `unittest`; `pytest tests` also works if installed). Integration tests train a small model once into a temp folder, so the real `models/` is never touched. `tests/test_scripts_e2e.py` runs every CLI script with a temp config and checks the files it writes. The LIME test is skipped, with the reason printed, when `lime` is not installed. `tests/test_packet_tracer.py` runs the generated PTBuilder scripts under Node against `tests/js/pt_mock.js` (skipped if Node.js is missing). 190 tests.
+`python scripts/run_tests.py` (stdlib `unittest`; `pytest tests` also works if installed). Integration tests train a small model once into a temp folder, so the real `models/` is never touched. `tests/test_scripts_e2e.py` runs every CLI script with a temp config and checks the files it writes. The LIME test is skipped, with the reason printed, when `lime` is not installed. `tests/test_packet_tracer.py` runs the generated PTBuilder scripts under Node against `tests/js/pt_mock.js` (skipped if Node.js is missing). 193 tests.
 
 ---
 

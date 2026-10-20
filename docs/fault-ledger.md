@@ -40,6 +40,7 @@ Approve by ID. Do not treat “fix everything” as approval unless they list ID
 | F-019 | Low | corrected | web | Web demo still shows P0 only; `fastapi` not installed, web not re-tested |
 | F-020 | Med | corrected | design | Labels were the rule cost of the same snapshot the model sees (model could only imitate the rule) |
 | F-021 | Info | open | testbed | Packet Tracer scripts verified against a PT-API mock only, not inside Packet Tracer |
+| F-022 | Low | corrected | testbed | Packet Tracer export required a trained model (and the ML stack) even for baseline builds |
 
 ---
 
@@ -297,6 +298,16 @@ Approve by ID. Do not treat “fix everything” as approval unless they list ID
 | **Where** | `src/packet_tracer/`, `scripts/packet_tracer.py` |
 | **Observed** | The generated PTBuilder scripts are tested against `tests/js/pt_mock.js` and the IOS configs against the offline route simulator; every IOS command used is in PT 9.0.1's bundled command reference except `ip routing`. They have not been executed in Packet Tracer (needs the GUI and a NetAcad login). |
 | **Proposed fix** | Follow `outputs/packet_tracer/GUIDE.md` once in PT 9.0.1 and run `scripts/packet_tracer.py verify`; fix anything that differs from the mock. |
+
+### F-022 — Packet Tracer export required a trained model for baseline builds
+
+| | |
+|--|--|
+| **Severity** | Low |
+| **Status** | corrected |
+| **Where** | `scripts/packet_tracer.py`, `src/packet_tracer/` |
+| **Observed** | `export` imported `RouteRecommender` at module level and loaded `models/route_cost_rf.joblib` unconditionally, so no `build_ospf.js` / `build_rip.js` could be generated from a clean checkout. The model is not committed, and this machine's scipy DLL is blocked by an Application Control policy, so the import failed before any baseline work. The PT build therefore depended on the ML phases it exists to demonstrate. |
+| **Resolution** | 2026-10-20 (user selected this task): added `export --no-ai`, which writes both build scripts, `configs/`, `manifest.json` (`baseline_only: true`, empty `pairs`) and `GUIDE.md` without importing scikit-learn or loading a model; the recommender import is now lazy and a failure names `--no-ai`. `verify --ai` on such a manifest explains that a re-export is needed. Tests: `tests/test_packet_tracer.py::CliExportTests` (19 tests in that file, OK; full suite 193 tests OK, 1 skipped). |
 
 ## How to approve
 

@@ -41,7 +41,7 @@ Or step by step:
 | P6 | `python scripts/simulate.py` (`--scenario configs/scenarios/traffic_dynamics.json`) | 10-step incident scenario (or 30 steps of traffic dynamics), reroutes with reasons and new explanations |
 | P7 | `python scripts/fetch_topology_zoo.py --name Geant2012` then `python scripts/compare.py --topology data/raw/Geant2012.graphml --ospf-cost inverse_bandwidth` | comparison on a real topology, metric provenance |
 | P7 | `python scripts/export_mininet.py` | Mininet script (Linux + root needed to run it) |
-| P7 | `python scripts/packet_tracer.py export` | Packet Tracer build / AI-route scripts for PTBuilder + `GUIDE.md`; `verify --protocol ospf [--ai] --trace FILE` checks a PT tracert |
+| P7 | `python scripts/packet_tracer.py export` | Packet Tracer build / AI-route scripts for PTBuilder + `GUIDE.md`; `export --no-ai` builds the baselines without a trained model; `verify --protocol ospf [--ai] --trace FILE` checks a PT tracert |
 | web | `scripts\web-local.cmd` | demo page with every phase on `http://127.0.0.1:8765/` |
 | tests | `python scripts/run_tests.py` | full suite (`--quick` skips the end-to-end script test) |
 

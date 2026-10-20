@@ -41,8 +41,8 @@ pip install -r requirements.txt
 | **P6** Traffic | **yes** | `python scripts/simulate.py --scenario configs/scenarios/traffic_dynamics.json` | R2→R5, 30 steps under the traffic model; 11 reroutes (flapping between two near-tied paths) |
 | **P7** Zoo | **yes** (network) | `python scripts/fetch_topology_zoo.py --name Geant2012` then `python scripts/compare.py --topology data/raw/Geant2012.gml` | 40 nodes / 61 links (from the Zoo authors' mirror when topology-zoo.org is down); delay from distance on 58/61 links; 12-pair comparison |
 | **P7** Mininet | export only | `python scripts/export_mininet.py` | `outputs/mininet/sample_topology_mininet.py` (run on Linux with `sudo`) |
-| **P7** Packet Tracer | export + verify | `python scripts/packet_tracer.py export`, then follow `outputs/packet_tracer/GUIDE.md`; `python scripts/packet_tracer.py verify --protocol ospf [--ai] --trace trace.txt` | `build_ospf.js` / `build_rip.js` / `ai_routes.js` for PTBuilder; 3 demo pairs where AI ≠ OSPF with expected tracert paths |
-| **Tests** | **yes** | `python scripts/run_tests.py` or `scripts\tests.cmd` | 172 tests OK; LIME test skipped if `lime` is missing; Packet Tracer script tests skipped if Node.js is missing |
+| **P7** Packet Tracer | export + verify | `python scripts/packet_tracer.py export` (or `export --no-ai` before a model exists), then follow `outputs/packet_tracer/GUIDE.md`; `python scripts/packet_tracer.py verify --protocol ospf [--ai] --trace trace.txt` | `build_ospf.js` / `build_rip.js` / `ai_routes.js` for PTBuilder; 3 demo pairs where AI ≠ OSPF with expected tracert paths |
+| **Tests** | **yes** | `python scripts/run_tests.py` or `scripts\tests.cmd` | 193 tests OK; LIME test skipped if `lime` is missing; Packet Tracer script tests skipped if Node.js is missing |
 
 Webpage plan: [web/web-phase-plan.md](web/web-phase-plan.md). Docker install/start/debug/test: [web/backend-docker.md](web/backend-docker.md).
 
