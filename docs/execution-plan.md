@@ -40,9 +40,10 @@ pip install -r requirements.txt
 | **P6** Dynamics | **yes** | `python scripts/simulate.py` | 10 steps; reroutes at t=5 and t=8 with reasons and new explanations |
 | **P6** Traffic | **yes** | `python scripts/simulate.py --scenario configs/scenarios/traffic_dynamics.json` | R2→R5, 30 steps under the traffic model; 11 reroutes (flapping between two near-tied paths) |
 | **P7** Zoo | **yes** (network) | `python scripts/fetch_topology_zoo.py --name Geant2012` then `python scripts/compare.py --topology data/raw/Geant2012.gml` | 40 nodes / 61 links (from the Zoo authors' mirror when topology-zoo.org is down); delay from distance on 58/61 links; 12-pair comparison |
+| **P6/P7** Real traffic | **yes** (network) | Save Abilene's network file from sndlib.put.poznan.pl to `data/raw/sndlib/networks/abilene.txt`, then `python scripts/fetch_sndlib_traffic.py --network abilene --limit 48`, then `python scripts/simulate.py --scenario configs/scenarios/abilene_real_traffic.json` | SNVAng→NYCMng, 48 steps, each a real 5-minute Abilene traffic matrix (Zhang et al.) instead of synthetic dynamics |
 | **P7** Mininet | export only | `python scripts/export_mininet.py` | `outputs/mininet/sample_topology_mininet.py` (run on Linux with `sudo`) |
 | **P7** Packet Tracer | export + verify | `python scripts/packet_tracer.py export`, then follow `outputs/packet_tracer/GUIDE.md`; `python scripts/packet_tracer.py verify --protocol ospf [--ai] --trace trace.txt` | `build_ospf.js` / `build_rip.js` / `ai_routes.js` for PTBuilder; 3 demo pairs where AI ≠ OSPF with expected tracert paths |
-| **Tests** | **yes** | `python scripts/run_tests.py` or `scripts\tests.cmd` | 172 tests OK; LIME test skipped if `lime` is missing; Packet Tracer script tests skipped if Node.js is missing |
+| **Tests** | **yes** | `python scripts/run_tests.py` or `scripts\tests.cmd` | 216 tests OK; LIME test skipped if `lime` is missing; Packet Tracer script tests skipped if Node.js is missing |
 
 Webpage plan: [web/web-phase-plan.md](web/web-phase-plan.md). Docker install/start/debug/test: [web/backend-docker.md](web/backend-docker.md).
 
@@ -59,7 +60,8 @@ Webpage plan: [web/web-phase-plan.md](web/web-phase-plan.md). Docker install/sta
 7. P5 `compare.py`
 8. P6 `simulate.py`
 9. P7 `fetch_topology_zoo.py` + `compare.py --topology ...`; `export_mininet.py`; `packet_tracer.py export`
-10. `run_tests.py`
+10. P6/P7 real traffic: `fetch_sndlib_traffic.py` + `simulate.py --scenario configs/scenarios/abilene_real_traffic.json`
+11. `run_tests.py`
 
 ---
 
