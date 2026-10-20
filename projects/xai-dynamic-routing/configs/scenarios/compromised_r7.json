@@ -1,0 +1,14 @@
+{
+  "name": "compromised_r7",
+  "description": "R3->R8 on the sample topology. At step 2 router R7 is treated as compromised: every link incident to R7 gets security_risk 0.95 (above the 0.65 hard limit) and a small loss bump. The initial AI path R3-R5-R7-R8 uses R7, so the hard-constraint penalty should force a reroute. Metric-level simulation only.",
+  "topology": null,
+  "src": "R3",
+  "dst": "R8",
+  "steps": 10,
+  "seed": 7,
+  "drift": {"metrics": [], "sigma": 0.0},
+  "attacks": [
+    {"kind": "compromised", "node": "R7", "step": 2}
+  ],
+  "events": []
+}

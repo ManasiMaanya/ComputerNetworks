@@ -2,7 +2,7 @@
 
 **Canonical live board** for Title 4. Checklists and dependencies stay in [xai-dynamic-routing-phase-plan.md](xai-dynamic-routing-phase-plan.md). Methods: [xai-dynamic-routing-methods.md](xai-dynamic-routing-methods.md).
 
-**Last updated:** 2026-10-19 (Q-routing baseline added to P5 compare; anti-flapping hysteresis in P6; fault-ledger cleanup)
+**Last updated:** 2026-10-20 (explanation-quality evaluation, label-sensitivity study, attack/attribution-drift analysis)
 
 **Rule:** Before every git commit that touches this capstone or its docs, refresh this file: Last updated, phase table, current work, next action, execution log. Keep `docs/execution-plan.md` in sync with scripts the user can run.
 
@@ -12,16 +12,16 @@
 
 | Field | Value |
 |-------|--------|
-| **Active phase** | None. P0–P7 implemented and verified, including LIME, outcome-based labels, the black-box baseline, and the Packet Tracer export (mock-tested). |
-| **Next action** | Run `outputs/packet_tracer/build_ospf.js` inside Packet Tracer and `verify` a tracert (only mock-tested so far); wire SNDlib traffic matrices into the traffic model. |
+| **Active phase** | Evaluation extensions (explanation quality, label sensitivity, attack/attribution drift) — implemented, measured, tested. P0–P7 remain implemented and verified, including LIME, outcome-based labels, the black-box baseline, and the Packet Tracer export (mock-tested). |
+| **Next action** | Run `outputs/packet_tracer/build_ospf.js` inside Packet Tracer and `verify` a tracert (only mock-tested so far); wire SNDlib traffic matrices into the traffic model. Optional: wider Dirichlet label-sensitivity draws and a temporal calibration of the attack-detection signal. |
 | **Blocked by** | — |
-| **Faults** | Corrected: F-001–F-012, F-014–F-020. Open: F-013, F-021 ([fault-ledger.md](fault-ledger.md)) |
+| **Faults** | Corrected: F-001–F-012, F-014–F-020, F-022, F-023. Open: F-013, F-021 ([fault-ledger.md](fault-ledger.md)) |
 
 ---
 
 ## Phases
 
-| Phase | Name | Status | Checklist | Evidence (2026-10-04 run) |
+| Phase | Name | Status | Checklist | Evidence (latest runs) |
 |-------|------|--------|-----------|---------------------------|
 | P0 | Scaffold | **done** | complete | `load_sample.py`: 8 nodes, 11 edges, 1 component. Loader validation and import fixes (F-005/006/007). |
 | P1 | Topology + features | **done** | complete | `features.py --src R1 --dst R8`: 5 candidates, all 4 hops; path 0 R1-R2-R4-R6-R8 sum_delay 25, min_bandwidth 70 (hand-checked in tests) |
@@ -31,6 +31,7 @@
 | P5 | Compare | **done** | complete | 7 sample pairs × RIP / OSPF / Q-ROUTE / AI / AI-BB, 0 failures. Mean max risk: AI 0.279, Q-ROUTE 0.314, OSPF 0.343, RIP 0.500. Mean delay: AI 23.0, Q-ROUTE 21.7, OSPF 21.6, RIP 26.4 ms. CSV/MD/figure saved. |
 | P6 | Dynamics | **done** | complete | History-aware recommender. `sample_incident` 10 steps: reroute at t=5 (R4-R6 flagged high-risk) to R1-R3-R5-R7-R8, back at t=8 (R4-R6 recovers); the one-step congestion spike at t=3 is smoothed by history. `traffic_dynamics` (R2→R5, 30 steps, traffic model): 11 reroutes at `hysteresis_margin=0` (incl. flapping between two near-tied paths), **7 with the default 3% margin** (anti-flapping, 2026-10-19) — `sample_incident`'s 2 genuine reroutes are unaffected. SHAP vs previous path each time. |
 | P7 | Datasets / testbed | **done** (Packet Tracer and Mininet not run on their platforms) | complete | GÉANT 2012 from the Zoo authors' mirror (GML with coordinates): 40 nodes / 61 links, delay from distance on 58/61 links, 12 pairs, 0 failures. Abilene also run. SNDlib loader (fixture-tested). Mininet script exported (not run). Packet Tracer: PTBuilder build/AI-route scripts + IOS configs + tracert verifier, tested against a PT-API mock (sample and real Abilene). |
+| Eval | Explanation quality / label sensitivity / attacks | **done** | complete | 7-pair quality report: SHAP occlusion fidelity ρ 0.558, SHAP–LIME ρ 0.843, LIME seed ρ 0.815, RF seed ρ 0.995 (path agreement 1.0), SHAP 1.03 s / LIME 0.15 s. 6-scenario label study: rule change 0.110 vs model change 0.117 (r = 0.882), retrained top-1 0.834 vs transferred 0.794. 2 attacks × 7 pairs: 5 affected pair-attacks, affected detection 5/5, mean drift 1.58; R3→R8 reroutes under both shipped scenarios. |
 
 Statuses: `not_started` · `in_progress` · `blocked` · `done` · `skipped`
 
@@ -95,9 +96,46 @@ Reading: both AI models are far better than RIP-like/OSPF-like picks, and the ex
 
 Provenance: delay estimated from distance on 58/61 links (default 3), bandwidth documented 39 / default 22, other metrics synthetic 61/61.
 
+### Explanation quality (7 pairs, 3 repeats, seeds 42–44, `outputs/reports/explanation_quality.json`)
+
+| Check | Result |
+|---|---:|
+| SHAP occlusion fidelity (Spearman / top-5 overlap) | 0.558 / 0.629 |
+| SHAP comprehensiveness / sufficiency advantage | 0.399 / 0.156 |
+| LIME occlusion fidelity (Spearman / top-5 overlap) | 0.496 / 0.743 |
+| SHAP vs LIME (Spearman / top-5 overlap / sign) | 0.843 / 0.810 / 0.796 |
+| LIME seed stability (Spearman / top-5 overlap) | 0.815 / 0.914 |
+| RF seed stability (Spearman / top-5 overlap) | 0.995 / 0.957 |
+| RF seed chosen-path agreement (and vs production model) | 1.000 / 1.000 |
+| SHAP / LIME median latency | 1,035 ms / 146 ms |
+| LIME mean surrogate R² | 0.205 |
+
+Reading: SHAP and LIME broadly agree and the explanation is stable across forest seeds, but occlusion fidelity is only moderate and LIME's local linear surrogate is weak (R² 0.21). Treat LIME as a cross-check, not a second ground truth. Full table in methods §11.1.
+
+### Label sensitivity (6 weight scenarios, 601 held-out queries, `outputs/reports/label_sensitivity.json`)
+
+| Scenario | Rule pick changed | Model pick changed | Retrained top-1 | Baseline transferred |
+|---|---:|---:|---:|---:|
+| delay_heavy | 0.131 | 0.161 | 0.852 | 0.790 |
+| risk_heavy | 0.135 | 0.131 | 0.855 | 0.807 |
+| loss_congestion_heavy | 0.097 | 0.101 | 0.804 | 0.774 |
+| hop_heavy | 0.050 | 0.068 | 0.840 | 0.819 |
+| uniform | 0.136 | 0.121 | 0.817 | 0.779 |
+
+Mean rule change 0.110, model change 0.117, correlation **0.882**; retrained top-1 0.834 vs transferred 0.794 (gap 0.040). The model tracks the declared policy but is not a literal formula copy; retraining on the new labels is what adapts it. Full table in methods §11.2.
+
+### Attack attribution drift (2 attacks × 7 pairs, `outputs/reports/attack_drift.json`)
+
+| Attack | Affected pairs | Affected detection | Affected mean cosine drift | Rerouted |
+|---|---:|---:|---:|---:|
+| blackhole R5 | 1 | 1.00 | 0.352 | 1/1 |
+| compromised R7 | 4 | 1.00 | 1.884 | 1/4 (3 are destination-unavoidable) |
+
+Across both attacks (14 pair-attacks, including 9 unaffected paths): reroute rate 0.143 and detection 0.357; among avoidable pairs the model avoided the attacked node 100 %. R3→R8 reroutes from R3-R5-R7-R8 to R3-R4-R6-R8 in both shipped scenario timelines. Full table in methods §11.3. Detection is a top-k SHAP signal, not a calibrated alarm.
+
 ### Tests
 
-`python scripts/run_tests.py`: **193 tests, OK, 1 skipped** (`LimeMissingTests`, which only runs when `lime` is absent), ~61 s, with the project venv and a trained model. Includes `tests/test_packet_tracer.py`, which runs the generated PTBuilder scripts under Node against a PT-API mock, `tests/test_simulation.py::HysteresisTests` (anti-flapping), and `tests/test_qrouting.py` (Q-routing baseline: cost formula, convergence to the exact Dijkstra-optimal path under frozen traffic, reacts to congestion unlike static OSPF, disconnected/invalid-node errors).
+`python scripts/run_tests.py`: **228 tests, OK, 1 skipped** (`LimeMissingTests`, which only runs when `lime` is absent), ~2 min, with the project venv and a trained model. Includes `tests/test_packet_tracer.py`, which runs the generated PTBuilder scripts under Node against a PT-API mock, `tests/test_simulation.py::HysteresisTests` (anti-flapping), `tests/test_qrouting.py` (Q-routing baseline), and the new `tests/test_explanation_quality.py`, `tests/test_label_sensitivity.py`, `tests/test_attacks.py` plus their CLI paths in `tests/test_scripts_e2e.py`.
 
 ---
 
@@ -131,6 +169,7 @@ Provenance: delay estimated from distance on 58/61 links (default 3), bandwidth 
 | 2026-10-19 | Anti-flapping hysteresis in P6 (`src/simulate/runner.py::apply_hysteresis`, config `simulation.hysteresis_margin`, default 0.03): hold the previous path when the model's new top pick isn't at least `margin` cheaper and the previous path is still a candidate; a reroute still happens immediately when the previous path drops out of the candidate set or a clearly better path appears. `traffic_dynamics`: 11 → 7 reroutes. `sample_incident`'s 2 scripted reroutes (t=5, t=8) unaffected. `scripts/simulate.py --hysteresis-margin` overrides it; web demo timeline surfaces `held_by_hysteresis` / `model_top_pick`. 8 new tests (`tests/test_simulation.py::HysteresisTests`); 181 tests OK. |
 | 2026-10-19 | Q-routing baseline added to P5 compare (`src/routing/qrouting.py`): a classical, traffic-reactive method (Boyan & Littman, 1994) alongside RIP/OSPF, so the comparison has "an existing AI routing method" per the course brief. Cost = `delay_ms * (1 + congestion)` (this project's traffic model doesn't vary delay, so a pure-delay Q-routing would be identical to OSPF); table trained once per topology via TD(0) over `generate_trace`, config `qrouting.{train_steps,learning_rate,discount,seed}` = 60/0.7/1.0/11. Wired into `compare_pair`/`run_comparison` (new optional `qmodel` param), `head_to_head`, `comparison_figure`'s colours, `scripts/compare.py` (trains it once per run), and `web/app.py`'s `/api/compare`. Verified: unit tests show it converges onto the exact Dijkstra-optimal path under frozen (noise-free) traffic, and picks a different, less-congested path than static OSPF on a hand-built example; a real `scripts/compare.py` run on the sample topology shows it as its own row (sum_delay 21.71 vs OSPF 21.57, max_security_risk 0.314 vs OSPF 0.343) and differing from OSPF's path on 1/7 sample pairs (R3→R8). 9 new tests (`tests/test_qrouting.py`, `tests/test_config.py::test_qrouting_keys`); 190 tests OK. |
 | 2026-10-20 | Packet Tracer baseline-only export (F-022, user-requested): `export --no-ai` writes `build_ospf.js` / `build_rip.js`, `configs/`, `manifest.json` (`baseline_only: true`, empty `pairs`) and `GUIDE.md` without importing scikit-learn or loading `models/`. The recommender import is lazy; a missing model or unavailable ML stack now points at `--no-ai`. `verify --ai` on a baseline-only manifest explains that a re-export is needed; `GUIDE.md` omits the `--ai` verify line. Generated the sample build scripts into `outputs/packet_tracer/` (both pass `node --check`). 3 new tests (`CliExportTests`); 19 tests in `tests/test_packet_tracer.py` OK and the full suite is 193 tests OK (1 skipped). With a freshly trained model, the same command also writes `ai_routes.js` (R1→R3, R1→R7, R3→R6 pinned); both build scripts and both AI scripts pass `node --check`, and `verify` matches sample OSPF and OSPF+AI traces. F-021 (run inside real PT) remains open. |
+| 2026-10-20 | Evaluation extensions (user-requested). `src/xai/quality.py` + `scripts/explain_quality.py`: occlusion fidelity (signed to match SHAP), comprehensiveness/sufficiency vs random subsets, SHAP–LIME rank/top-k/sign agreement, LIME seed stability, RF seed stability on the same table, latency. `src/evaluate/label_sensitivity.py` + `scripts/label_sensitivity.py`: baseline/delay/risk/loss+congestion/hop/uniform + seeded Dirichlet weights, retrain per scenario, rule vs model change rates, retrained vs transferred top-1. `src/simulate/attacks.py` + `src/evaluate/attack_drift.py` + `scripts/attack_drift.py`: blackhole/compromised node attacks expanded into persistent per-edge events (reasserted each step; `--scenario` timelines), same-path SHAP drift and signal-feature detection. Shipped `blackhole_r5.json` / `compromised_r7.json` (R3→R8); both reroute. Config `evaluation` section; `train_and_evaluate(..., cv=False)` for repeated studies; `run.ps1` steps. Measured: SHAP fidelity 0.558, SHAP–LIME 0.843, LIME seed 0.815, RF seed 0.995/path 1.0, SHAP 1.03 s/LIME 0.15 s, LIME surrogate R² 0.205; label rule/model change 0.110/0.117 (r 0.882), retrained/transfer top-1 0.834/0.794; attacks affected detection 5/5, affected drift 1.58. 35 new tests; full suite **228 tests OK, 1 skipped** (~2 min). F-021 remains open. |
 
 ---
 

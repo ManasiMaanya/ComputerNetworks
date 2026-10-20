@@ -1,0 +1,14 @@
+{
+  "name": "blackhole_r5",
+  "description": "R3->R8 on the sample topology. At step 2 the core router R5 becomes a blackhole: every link incident to R5 gets loss 0.99 and reliability 0.10. The initial AI path R3-R5-R7-R8 uses R5, so the recommender should reroute to the R4/R6 side. Metric-level simulation only.",
+  "topology": null,
+  "src": "R3",
+  "dst": "R8",
+  "steps": 10,
+  "seed": 5,
+  "drift": {"metrics": [], "sigma": 0.0},
+  "attacks": [
+    {"kind": "blackhole", "node": "R5", "step": 2}
+  ],
+  "events": []
+}

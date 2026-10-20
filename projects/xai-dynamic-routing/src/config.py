@@ -138,6 +138,24 @@ def validate_config(cfg: dict, where: str = "config") -> dict:
     _positive_int(xai, "lime_num_samples", f"{where}.xai")
     _require(xai, "seed", int, f"{where}.xai")
 
+    evaluation = _require(cfg, "evaluation", dict, where)
+    explanation = _require(evaluation, "explanation", dict, f"{where}.evaluation")
+    for key in ("repeats", "model_seeds", "lime_seeds", "top_k"):
+        _positive_int(explanation, key, f"{where}.evaluation.explanation")
+    sensitivity = _require(evaluation, "label_sensitivity", dict, f"{where}.evaluation")
+    draws = _require(sensitivity, "random_weight_draws", int, f"{where}.evaluation.label_sensitivity")
+    if draws < 0:
+        raise ConfigError(f"{where}.evaluation.label_sensitivity: 'random_weight_draws' must be >= 0")
+    _require(sensitivity, "seed", int, f"{where}.evaluation.label_sensitivity")
+    attacks = _require(evaluation, "attacks", dict, f"{where}.evaluation")
+    for key in ("blackhole_loss", "blackhole_reliability", "compromised_risk", "compromised_loss"):
+        value = _finite(_require(attacks, key, (int, float), f"{where}.evaluation.attacks"),
+                        key, f"{where}.evaluation.attacks", minimum=0)
+        if value > 1:
+            raise ConfigError(f"{where}.evaluation.attacks: '{key}' must be <= 1, got {value}")
+    if attacks["blackhole_reliability"] <= 0:
+        raise ConfigError(f"{where}.evaluation.attacks: 'blackhole_reliability' must be > 0")
+
     paths = _require(cfg, "paths", dict, where)
     for key in ("models_dir", "outputs_dir", "processed_dir", "raw_dir"):
         _require(paths, key, str, f"{where}.paths")

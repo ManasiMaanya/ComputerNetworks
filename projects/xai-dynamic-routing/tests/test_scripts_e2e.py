@@ -90,6 +90,38 @@ class ScriptPipelineTests(unittest.TestCase):
         self.ok(self.script("export_mininet.py"))
         self.assertTrue((self.out / "mininet" / "sample_topology_mininet.py").exists())
 
+    def test_7_explanation_quality(self):
+        table = self.work / "processed" / "training_table.csv"
+        out = self.ok(self.script("explain_quality.py", "--pairs", "R1:R8,R3:R8", "--repeats", "1",
+                                  "--lime-seeds", "1", "--model-seeds", "2", "--table", table))
+        self.assertIn("shap_fidelity_spearman", out)
+        report = json.loads((self.out / "reports" / "explanation_quality.json").read_text(encoding="utf-8"))
+        self.assertEqual(report["summary"]["pairs"], 2)
+        self.assertIsNotNone(report["summary"]["shap_fidelity_spearman"])
+        self.assertEqual(report["model_seed_stability"]["summary"]["comparisons"], 2)
+        self.assertTrue((self.out / "reports" / "explanation_quality.md").exists())
+        self.assertTrue((self.out / "figures" / "explanation_quality.png").exists())
+
+    def test_8_label_sensitivity(self):
+        out = self.ok(self.script("label_sensitivity.py", "--scenarios", "baseline,risk_heavy",
+                                  "--random-weight-draws", "0"))
+        self.assertIn("mean_retrained_top1", out)
+        report = json.loads((self.out / "reports" / "label_sensitivity.json").read_text(encoding="utf-8"))
+        self.assertEqual(set(report["scenarios"]), {"baseline", "risk_heavy"})
+        self.assertEqual(report["scenarios"]["baseline"]["model_vs_baseline"]["change_rate"], 0.0)
+        self.assertIsNotNone(report["summary"]["mean_rule_change_rate"])
+        self.assertTrue((self.out / "figures" / "label_sensitivity.png").exists())
+
+    def test_9_attack_drift(self):
+        out = self.ok(self.script("attack_drift.py", "--attack", "blackhole:R5",
+                                  "--attack", "compromised:R7", "--pairs", "R3:R8"))
+        self.assertIn("mean_attribution_drift", out)
+        report = json.loads((self.out / "reports" / "attack_drift.json").read_text(encoding="utf-8"))
+        self.assertEqual(report["summary"]["evaluated"], 2)
+        self.assertEqual(report["summary"]["affected_pairs"], 2)
+        self.assertEqual(report["summary"]["reroute_rate"], 1.0)
+        self.assertTrue((self.out / "figures" / "attack_drift.png").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

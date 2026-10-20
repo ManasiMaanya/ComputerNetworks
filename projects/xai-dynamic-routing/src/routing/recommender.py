@@ -161,8 +161,13 @@ def evaluate_selection(table: pd.DataFrame, predicted: np.ndarray, blackbox: np.
 
 
 def train_and_evaluate(table: pd.DataFrame, train_mask: np.ndarray, test_mask: np.ndarray,
-                       cfg: dict, *, blackbox: bool = True) -> tuple[RandomForestRegressor, dict, object | None]:
-    """Fit the Random Forest (and the black-box MLP), evaluate both on the held-out rows."""
+                       cfg: dict, *, blackbox: bool = True,
+                       cv: bool = True) -> tuple[RandomForestRegressor, dict, object | None]:
+    """Fit the Random Forest (and the black-box MLP), evaluate both on the held-out rows.
+
+    `cv=False` skips the group K-fold (the final fit and held-out evaluation are unchanged);
+    the label-sensitivity study uses it to keep repeated retraining affordable.
+    """
     tcfg = cfg["training"]
     train, test = table[train_mask], table[test_mask]
     if len(train) < 20 or train["query"].nunique() < 5:
@@ -172,11 +177,13 @@ def train_and_evaluate(table: pd.DataFrame, train_mask: np.ndarray, test_mask: n
     X_train, y_train = train[list(MODEL_COLUMNS)], train["target"]
     X_test = test[list(MODEL_COLUMNS)]
 
-    n_splits = min(5, train["group"].nunique())
     cv_mae = []
-    for fit_idx, val_idx in GroupKFold(n_splits=n_splits).split(X_train, y_train, train["group"]):
-        fold = fit_model(tcfg, X_train.iloc[fit_idx], y_train.iloc[fit_idx])
-        cv_mae.append(mean_absolute_error(y_train.iloc[val_idx], fold.predict(X_train.iloc[val_idx])))
+    n_splits = 0
+    if cv:
+        n_splits = min(5, train["group"].nunique())
+        for fit_idx, val_idx in GroupKFold(n_splits=n_splits).split(X_train, y_train, train["group"]):
+            fold = fit_model(tcfg, X_train.iloc[fit_idx], y_train.iloc[fit_idx])
+            cv_mae.append(mean_absolute_error(y_train.iloc[val_idx], fold.predict(X_train.iloc[val_idx])))
 
     model = fit_model(tcfg, X_train, y_train)
     pred_test = model.predict(X_test)
@@ -189,7 +196,8 @@ def train_and_evaluate(table: pd.DataFrame, train_mask: np.ndarray, test_mask: n
         "rows": {"train": int(len(train)), "test": int(len(test))},
         "queries": {"train": int(train["query"].nunique()), "test": int(test["query"].nunique())},
         "groups": {"train": int(train["group"].nunique()), "test": int(test["group"].nunique())},
-        "group_cv_mae_train": {"folds": n_splits, "mean": float(np.mean(cv_mae)), "std": float(np.std(cv_mae))},
+        "group_cv_mae_train": ({"folds": n_splits, "mean": float(np.mean(cv_mae)),
+                                "std": float(np.std(cv_mae))} if cv_mae else None),
         "test_regression": {"mae": float(mean_absolute_error(test["target"], pred_test)),
                             "r2": float(r2_score(test["target"], pred_test))},
         "test_selection": evaluate_selection(test, pred_test, bb_test),

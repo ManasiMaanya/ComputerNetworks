@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import copy
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import networkx as nx
@@ -35,6 +35,21 @@ class Event:
     label: str = ""
 
 
+@dataclass(frozen=True)
+class Attack:
+    """A node-level attack expanded into per-edge events by src/simulate/attacks.py.
+
+    blackhole: every incident link drops traffic (high loss, low reliability).
+    compromised: every incident link is marked above the scoring rule's risk limit.
+    """
+    kind: str
+    node: str
+    step: int = 0
+    loss: float | None = None
+    risk: float | None = None
+    label: str = ""
+
+
 @dataclass
 class Scenario:
     name: str
@@ -48,6 +63,7 @@ class Scenario:
     topology: str | None = None
     description: str = ""
     traffic: bool = False
+    attacks: list[Attack] = field(default_factory=list)
 
 
 def _metrics(obj, where: str) -> dict[str, float]:
@@ -97,8 +113,35 @@ def parse_scenario(data: dict, where: str = "scenario") -> Scenario:
     traffic = data.get("traffic", False)
     if not isinstance(traffic, bool):
         raise ConfigError(f"{where}: 'traffic' must be true or false")
+    raw_attacks = data.get("attacks", [])
+    if not isinstance(raw_attacks, list):
+        raise ConfigError(f"{where}: 'attacks' must be a list")
+    attacks = []
+    for i, atk in enumerate(raw_attacks):
+        label = f"{where}.attacks[{i}]"
+        if not isinstance(atk, dict):
+            raise ConfigError(f"{label}: must be an object")
+        kind = atk.get("kind")
+        if kind not in ("blackhole", "compromised"):
+            raise ConfigError(f"{label}: 'kind' must be 'blackhole' or 'compromised', got {kind!r}")
+        node = atk.get("node")
+        if not isinstance(node, str) or not node:
+            raise ConfigError(f"{label}: 'node' must be a non-empty string")
+        step = atk.get("step", 0)
+        if not isinstance(step, int) or not 0 <= step < steps:
+            raise ConfigError(f"{label}: 'step' must be an int in [0, {steps - 1}]")
+        for key in ("loss", "risk"):
+            value = atk.get(key)
+            if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))
+                                      or not np.isfinite(value) or not 0 <= value <= 1):
+                raise ConfigError(f"{label}: '{key}' must be a number in [0, 1]")
+        attacks.append(Attack(kind, node, step,
+                              None if atk.get("loss") is None else float(atk["loss"]),
+                              None if atk.get("risk") is None else float(atk["risk"]),
+                              str(atk.get("label", ""))))
     return Scenario(str(data["name"]), str(data["src"]), str(data["dst"]), steps, seed, metrics,
-                    float(sigma), events, data.get("topology"), data.get("description", ""), traffic)
+                    float(sigma), events, data.get("topology"), data.get("description", ""), traffic,
+                    attacks=attacks)
 
 
 def load_scenario(path: Path) -> Scenario:
@@ -112,7 +155,15 @@ def load_scenario(path: Path) -> Scenario:
 
 
 class GraphSimulator:
-    def __init__(self, graph: nx.Graph, scenario: Scenario, traffic: TrafficParams | None = None):
+    def __init__(self, graph: nx.Graph, scenario: Scenario, traffic: TrafficParams | None = None,
+                 attack_defaults: dict | None = None):
+        from .attacks import attack_events  # local import: attacks imports Event/Attack from here
+
+        events = list(scenario.events)
+        for attack in scenario.attacks:
+            events.extend(attack_events(graph, attack, attack_defaults, steps=scenario.steps))
+        if scenario.attacks:
+            scenario = replace(scenario, events=events)
         for ev in scenario.events:
             if not graph.has_edge(*ev.edge):
                 raise ConfigError(f"scenario '{scenario.name}': event edge {ev.edge[0]}-{ev.edge[1]} not in graph")

@@ -256,6 +256,27 @@ Canonical snapshot: [phase-execution-status.md](phase-execution-status.md). Do n
 
 ---
 
+### Evaluation extensions (post-P7)
+
+| | |
+|--|--|
+| **Depends on** | P3 trained model, P4 SHAP/LIME, P6 scenario runner |
+| **Produces** | `src/xai/quality.py`, `src/evaluate/explanation_quality.py`, `label_sensitivity.py`, `attack_drift.py`, `src/simulate/attacks.py`; three CLIs and reports |
+| **Python** | `shap`, `lime`, `scikit-learn`, `pandas`, `matplotlib` |
+| **Blocks** | Report's trust/robustness section; no phase milestone |
+
+**Checklist**
+
+- [x] Occlusion fidelity, comprehensiveness/sufficiency vs random subsets, SHAP–LIME agreement, LIME seed stability, RF seed stability, latency (`scripts/explain_quality.py`)
+- [x] Alternate cost weights (delay/risk/loss+congestion/hop/uniform + seeded Dirichlet), retrain per scenario, rule vs model change rates, retrained vs transferred top-1 (`scripts/label_sensitivity.py`)
+- [x] Blackhole and compromised-node scenarios expanded into persistent per-edge events; same-path SHAP drift and signal-feature detection (`scripts/attack_drift.py`)
+- [x] JSON/Markdown/figure outputs, config validation, focused unit tests and CLI end-to-end tests
+- [x] Measured results recorded in the status board and methods §11
+
+**Exit:** each analysis runs from a trained model and reports both the metric and its limitation.
+
+---
+
 ## 4. What can run in parallel
 
 | Track A | Track B | Merge at |
