@@ -11,6 +11,7 @@ configs/default.json ──► src/config.py (validated config, project-root pat
 data/samples/*.json  ──► src/topology/load.py      JSON loader + metric validation      [P0]
 data/raw/*.gml|graphml ► src/topology/zoo.py       Topology Zoo import + provenance     [P7]
 data/raw/*.txt       ──► src/topology/sndlib.py    SNDlib native import + demands       [P7]
+data/raw/sndlib/traffic-matrices/*  ──► sndlib.py::load_demand_matrix  real traffic [P7]
                           │
                           ▼
               src/features/path_features.py        candidates + 12 path features        [P1]
@@ -33,6 +34,7 @@ data/raw/*.txt       ──► src/topology/sndlib.py    SNDlib native import + 
  src/evaluate/compare.py ◄───────────────┤             RIP vs OSPF vs Q-routing vs AI   [P5]
                                          ▼
  src/simulate/graph_sim.py + runner.py                 time steps, reroutes            [P6]
+ src/simulate/real_traffic.py          real-traffic-driven steps, real_traffic_dir [P6/P7]
  src/simulate/mininet_export.py                        Mininet script export           [P7]
  src/packet_tracer/                                    Packet Tracer build + verify    [P7]
 ```
@@ -290,15 +292,16 @@ Outputs: `outputs/reports/compare_<topology>[_ospf-<cost>].csv` and `.md`, and `
 
 ## 8. Phase 6: dynamic simulation
 
-Scenario JSON (`configs/scenarios/*.json`): `name`, `src`, `dst`, `steps`, `seed`, `drift {metrics, sigma}`, `events[{step, edge, set{}, add{}, label}]`, and optional `"traffic": true` (run the §5.1 traffic model each step — the dynamics the default model is trained on).
+Scenario JSON (`configs/scenarios/*.json`): `name`, `src`, `dst`, `steps`, `seed`, `drift {metrics, sigma}`, `events[{step, edge, set{}, add{}, label}]`, and optional `"traffic": true` (run the §5.1 traffic model each step — the dynamics the default model is trained on) **or** `"real_traffic_dir"` (step through real measured traffic instead — below; mutually exclusive with `"traffic": true`).
 
 At each step t (0..steps−1):
 
-1. For t > 0, add seeded `N(0, sigma)` drift to the drift metrics on every edge.
-2. For t > 0 with `"traffic": true`, advance the traffic model one step.
-3. Apply that step's scripted events.
-4. Clip values to valid ranges and re-validate the graph.
-5. Re-run the recommender with each candidate's recent history (the previous `history_steps` − 1 snapshots of this run).
+1. If the scenario sets `real_traffic_dir`: replace utilization/congestion/loss/queue outright with that step's real traffic snapshot (below) — every step, including t=0.
+2. Else, for t > 0, add seeded `N(0, sigma)` drift to the drift metrics on every edge.
+3. Else, for t > 0 with `"traffic": true`, advance the traffic model one step.
+4. Apply that step's scripted events (on top of whichever of 1-3 ran).
+5. Clip values to valid ranges and re-validate the graph.
+6. Re-run the recommender with each candidate's recent history (the previous `history_steps` − 1 snapshots of this run).
 
 The input graph is deep-copied and never modified. The same scenario and seed always give the same run (tested).
 
@@ -320,6 +323,14 @@ The scenario changes only metrics. The model decides whether and where to rerout
 The `traffic_dynamics` scenario runs R2→R5 for 30 steps under the traffic model with no scripted events. R2→R5's two best candidates are close, so ordinary dynamics flip the recommendation: 11 reroutes in 30 steps at `hysteresis_margin=0`, several back-and-forth (route flapping). The default `hysteresis_margin=0.03` holds the previous path unless the model's new pick is at least 3% (relative) cheaper, which cuts this to 7 reroutes without delaying the genuine, large degradation in `sample_incident` (still rerouted immediately there). The margin is applied only in the P6 runner (`run_simulation`), not in `RouteRecommender.recommend` itself, so a one-off query (`infer.py`, `/api/infer`) is unaffected.
 
 Outputs: `outputs/simulations/<name>/history.{csv,json}`, `timeline.png`, and `explain_<name>_stepNN.json` / `shap_<name>_stepNN.png` per explained step.
+
+### Real traffic (`real_traffic_dir`, `src/simulate/real_traffic.py`; see SNDlib below for the data)
+
+`configs/scenarios/abilene_real_traffic.json` demos a scenario driven by real measured traffic instead of the §5.1 synthetic model: SNVAng→NYCMng on Internet2's real Abilene network, 48 steps, each one a real 5-minute demand matrix (Zhang et al., via SNDlib).
+
+Per step: every directed demand with non-zero traffic is routed via OSPF(delay) over the static topology (`ospf_route_from_config`); both directions of a pair add their Mbit/s load onto the same undirected edge (the topology is undirected, demands are not). Per edge: `utilization = clip(load_mbps / bandwidth_mbps)`, `congestion = clip(utilization**1.5)`, `loss`/`queue` reuse the Topology Zoo `synthetic` formulas exactly (§9's table below: `0.0005 + 0.05*congestion**2`, `round(25*congestion)`) — reused rather than reinvented, with one deliberate difference: **no noise term on congestion**, because the real matrix already supplies real variation step to step. delay/bandwidth/reliability/energy/security_risk stay at the base topology's values; the demand data carries no signal for any of them. An edge with zero routed load for that step gets congestion/utilization/queue 0 (not a leftover value from the previous step or the base topology), so every step's derived metrics come from that step's real load alone.
+
+This is wired into P6 (`GraphSimulator`/`run_simulation`/`scripts/simulate.py`/the web demo's `/api/simulate`) only, not P3 training — see the SNDlib section below for why.
 
 ---
 
@@ -348,11 +359,11 @@ The GitHub GraphML sources have no coordinates, so delay is `default` (5 ms on e
 
 ### SNDlib (native `.txt`)
 
-Parses `NODES` (coordinates), `LINKS` (pre-installed capacity, else largest module capacity, treated as Mbps), and `DEMANDS` (sorted largest first; used as comparison pairs). Other metrics follow the Zoo policy. Keep instances in `data/raw/`.
+Parses `NODES` (coordinates), `LINKS` (pre-installed capacity, else largest module capacity, treated as Mbps), and `DEMANDS` (sorted largest first; used as comparison pairs). Other metrics follow the Zoo policy. Keep instances in `data/raw/sndlib/networks/`.
 
-SNDlib dynamic traffic matrices (Abilene: 5-minute intervals over 6 months; GÉANT: 15-minute
-intervals over 4 months; from sndlib.put.poznan.pl) can be downloaded into `data/raw/sndlib/`;
-the loader currently uses the static `DEMANDS` section only.
+SNDlib dynamic traffic matrices (Abilene: 5-minute intervals over 6 months; GÉANT: 15-minute intervals over 4 months; from sndlib.put.poznan.pl) are a separate download per network: one native-format file per time interval, sharing the base network's `NODES` but with an empty-but-present `LINKS ( )` and a `DEMANDS` section listing only that interval's non-negligible demands (SNDlib rounds and *drops* near-zero demands from the file entirely rather than writing `0.0` — `load_demand_matrix` treats an absent pair as real-measured zero, not missing data). `src/topology/sndlib.py::load_demand_matrix` parses one such file; `scripts/fetch_sndlib_traffic.py` downloads a network's full archive and extracts the demand-matrix files (chronologically-first `--limit` by default, since e.g. Abilene's archive has 48,096 of them). The "Real traffic" subsection of §8 above is what consumes them.
+
+This real traffic data drives **P6 simulation only, not P3 training**. P3's `sample_topology` + 80 synthetic graphs under the §5.1 traffic model is a deliberate design choice for generalization — training on one real network's traffic risks narrowing the model to that network's load pattern and destabilizing the already-measured P3 held-out results (§ Measured results in the status board) for no benefit to P6's actual goal, which is showing the *recommender* react to real measured load, not retraining it on that one network.
 
 ### CAIDA
 
@@ -519,7 +530,7 @@ The new analyses have focused unit tests (`tests/test_explanation_quality.py`, `
 
 ## 12. Tests
 
-`python scripts/run_tests.py` (stdlib `unittest`; `pytest tests` also works if installed). Integration tests train a small model once into a temp folder, so the real `models/` is never touched. `tests/test_scripts_e2e.py` runs every CLI script with a temp config and checks the files it writes. The LIME test is skipped, with the reason printed, when `lime` is not installed. `tests/test_packet_tracer.py` runs the generated PTBuilder scripts under Node against `tests/js/pt_mock.js` (skipped if Node.js is missing). The suite includes the three evaluation modules and their CLI paths.
+`python scripts/run_tests.py` (stdlib `unittest`; `pytest tests` also works if installed). Integration tests train a small model once into a temp folder, so the real `models/` is never touched. `tests/test_scripts_e2e.py` runs every CLI script with a temp config and checks the files it writes. The LIME test is skipped, with the reason printed, when `lime` is not installed. `tests/test_packet_tracer.py` runs the generated PTBuilder scripts under Node against `tests/js/pt_mock.js` (skipped if Node.js is missing). `tests/test_real_traffic.py` runs against 4 real Abilene traffic-matrix files checked in as fixtures (no network access needed). The suite includes the three evaluation modules and their CLI paths; the full run is 255 tests OK, 1 skipped.
 
 ---
 
@@ -531,6 +542,7 @@ The new analyses have focused unit tests (`tests/test_explanation_quality.py`, `
 - Q-routing is a single-objective (delay + congestion only) baseline, trained offline on a synthetic trace rather than online per-packet as in the original algorithm; it is a point of comparison for "an existing dynamic routing method", not a reimplementation of a production Q-routing deployment.
 - Candidates are limited to `k` paths (default 5) from `mixed` Yen. A better path outside that set cannot be chosen.
 - The sample graph is synthetic. Imported Zoo/SNDlib graphs use synthetic QoS/risk values and, for GraphML sources, default delays (all labelled).
+- Real SNDlib traffic (§8/§9) only replays through P6; it does not affect P3's training data or held-out results, by design (§9's SNDlib section explains why). Only congestion/utilization/loss/queue are real-derived — delay, bandwidth, reliability, energy, and security_risk are not measured by a traffic matrix and stay at the base topology's (synthetic or documented) values.
 - Simulation is a discrete metric-update model with no packets, queues, or protocol convergence timing. The Mininet export and the Packet Tracer scripts are untested on those platforms here.
 - SHAP/LIME explain the model output, not causal network behaviour. LIME depends on discretisation and sampling (seeded).
 - Explanation fidelity uses median occlusion, which can create feature combinations no real path has; it tests faithfulness to the model, not correctness of the route. On the sample topology SHAP–occlusion rank correlation is 0.56, so the explanation is informative but incomplete.

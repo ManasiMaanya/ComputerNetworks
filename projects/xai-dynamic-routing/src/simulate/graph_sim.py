@@ -1,12 +1,21 @@
 """Discrete-time metric simulation on a copy of the topology (Phase 6).
 
 Each step t = 0..steps-1:
-  1. t > 0: seeded Gaussian drift N(0, sigma) is added to the scenario's drift metrics on every edge;
-  2. t > 0 and the scenario sets "traffic": true: one step of the traffic model (src/simulate/traffic.py,
-     mean-reverting congestion/loss/risk with bursts and incidents; config `traffic`), the same
-     dynamics the default model is trained on;
-  3. scripted events for step t ("set" absolute values, "add" deltas) are applied to named edges;
-  4. values are clipped to METRIC_SPEC ranges and the whole graph is re-validated.
+  1. if the scenario sets "real_traffic_dir": utilization/congestion/loss/queue are replaced
+     outright by step t's real SNDlib traffic snapshot (src/simulate/real_traffic.py), one file
+     per step, supplied by the caller as `real_graphs` (see GraphSimulator.__init__);
+  2. else, t > 0: seeded Gaussian drift N(0, sigma) is added to the scenario's drift metrics on
+     every edge;
+  3. else, t > 0 and the scenario sets "traffic": true: one step of the traffic model
+     (src/simulate/traffic.py, mean-reverting congestion/loss/risk with bursts and incidents;
+     config `traffic`), the same dynamics the default model is trained on;
+  4. scripted events for step t ("set" absolute values, "add" deltas), plus any node attack
+     expanded into persistent per-edge events (src/simulate/attacks.py), are applied to named
+     edges on top of whichever of 1-3 ran;
+  5. values are clipped to METRIC_SPEC ranges and the whole graph is re-validated.
+"real_traffic_dir" and "traffic": true are mutually exclusive (src/simulate/real_traffic.py's
+real measurements and traffic.py's synthetic model are two different ways to drive the same
+metrics, never both at once); drift may still be layered on top of either.
 The input graph is deep-copied and never modified. Same scenario + seed => identical run.
 Mininet/NS-3 adapters are out of scope here; see src/simulate/mininet_export.py for a topology export.
 """
@@ -23,6 +32,7 @@ import numpy as np
 
 from ..errors import ConfigError
 from ..topology.load import EDGE_ATTRS, METRIC_SPEC, clamp_metric, validate_graph_metrics
+from .real_traffic import REAL_METRICS
 from .traffic import TrafficModel, TrafficParams
 
 
@@ -64,6 +74,7 @@ class Scenario:
     description: str = ""
     traffic: bool = False
     attacks: list[Attack] = field(default_factory=list)
+    real_traffic_dir: str | None = None
 
 
 def _metrics(obj, where: str) -> dict[str, float]:
@@ -139,9 +150,15 @@ def parse_scenario(data: dict, where: str = "scenario") -> Scenario:
                               None if atk.get("loss") is None else float(atk["loss"]),
                               None if atk.get("risk") is None else float(atk["risk"]),
                               str(atk.get("label", ""))))
+    real_traffic_dir = data.get("real_traffic_dir")
+    if real_traffic_dir is not None and not (isinstance(real_traffic_dir, str) and real_traffic_dir):
+        raise ConfigError(f"{where}: 'real_traffic_dir' must be a non-empty string")
+    if real_traffic_dir is not None and traffic:
+        raise ConfigError(f"{where}: 'real_traffic_dir' and 'traffic': true are mutually exclusive "
+                          f"(real measurements vs. the synthetic traffic model -- pick one)")
     return Scenario(str(data["name"]), str(data["src"]), str(data["dst"]), steps, seed, metrics,
                     float(sigma), events, data.get("topology"), data.get("description", ""), traffic,
-                    attacks=attacks)
+                    attacks=attacks, real_traffic_dir=real_traffic_dir)
 
 
 def load_scenario(path: Path) -> Scenario:
@@ -156,6 +173,7 @@ def load_scenario(path: Path) -> Scenario:
 
 class GraphSimulator:
     def __init__(self, graph: nx.Graph, scenario: Scenario, traffic: TrafficParams | None = None,
+                 real_graphs: list[nx.Graph] | None = None, *,
                  attack_defaults: dict | None = None):
         from .attacks import attack_events  # local import: attacks imports Event/Attack from here
 
@@ -167,10 +185,18 @@ class GraphSimulator:
         for ev in scenario.events:
             if not graph.has_edge(*ev.edge):
                 raise ConfigError(f"scenario '{scenario.name}': event edge {ev.edge[0]}-{ev.edge[1]} not in graph")
+        if scenario.real_traffic_dir and real_graphs is None:
+            raise ConfigError(f"scenario '{scenario.name}' sets 'real_traffic_dir' but no real_graphs "
+                              f"were supplied (build them with src.simulate.real_traffic.real_trace "
+                              f"and pass them to GraphSimulator before stepping)")
+        if real_graphs is not None and len(real_graphs) != scenario.steps:
+            raise ConfigError(f"scenario '{scenario.name}': {len(real_graphs)} real-traffic snapshot(s) "
+                              f"but 'steps' is {scenario.steps} -- these must match")
         self.graph = copy.deepcopy(graph)
         self.scenario = scenario
         self.rng = np.random.default_rng(scenario.seed)
         self.traffic = TrafficModel(graph, traffic) if scenario.traffic else None
+        self.real_graphs = real_graphs
 
     def _set(self, u, v, metric: str, value: float, cause: str, changes: list) -> None:
         data = self.graph.edges[u, v]
@@ -186,6 +212,11 @@ class GraphSimulator:
         """Advance to step t and return every metric change applied."""
         changes: list[dict] = []
         sc = self.scenario
+        if self.real_graphs is not None:
+            snapshot = self.real_graphs[t]
+            for u, v in sorted(self.graph.edges(), key=lambda e: (str(e[0]), str(e[1]))):
+                for metric in REAL_METRICS:
+                    self._set(u, v, metric, snapshot.edges[u, v][metric], "real_traffic", changes)
         if t > 0 and sc.drift_metrics and sc.drift_sigma > 0:
             for u, v, data in sorted(self.graph.edges(data=True), key=lambda e: (str(e[0]), str(e[1]))):
                 for metric in sc.drift_metrics:

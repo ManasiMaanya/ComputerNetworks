@@ -178,7 +178,7 @@ Approve by ID. Do not treat “fix everything” as approval unless they list ID
 | | |
 |--|--|
 | **Severity** | Low |
-| **Status** | open |
+| **Status** | corrected |
 | **Where** | `.cursor/skills/computer-networks/SKILL.md` coding rules vs `requirements.txt` |
 | **Observed** | Skill: stdlib `socket`/`struct` unless asked otherwise. Capstone correctly uses NetworkX/sklearn/SHAP. |
 | **Impact** | Agent might refuse pandas/networkx on this project. |

@@ -1,0 +1,12 @@
+{
+  "name": "abilene_real_traffic",
+  "description": "SNVAng->NYCMng (Sunnyvale to New York) on Internet2's real Abilene network, driven by its real 5-minute traffic matrices (Zhang et al.) instead of synthetic dynamics: each step replays one real measured demand matrix, routed via OSPF(delay) onto the topology, with congestion/utilization/loss/queue derived from that real load (src/simulate/real_traffic.py). No scripted events.\n\nSetup (not included in this repo -- data/raw/ is gitignored):\n  1. Download the Abilene network file from https://sndlib.put.poznan.pl/abilene.overview.action and save it as data/raw/sndlib/networks/abilene.txt\n  2. python scripts/fetch_sndlib_traffic.py --network abilene --limit 48\n  3. python scripts/simulate.py --scenario configs/scenarios/abilene_real_traffic.json\n'steps' below (48) matches the fetch script's default --limit; change both together if you use a different --limit.",
+  "topology": "data/raw/sndlib/networks/abilene.txt",
+  "src": "SNVAng",
+  "dst": "NYCMng",
+  "steps": 48,
+  "seed": 7,
+  "real_traffic_dir": "data/raw/sndlib/traffic-matrices/abilene",
+  "drift": {"metrics": [], "sigma": 0.0},
+  "events": []
+}
