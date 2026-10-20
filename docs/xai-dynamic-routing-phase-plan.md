@@ -44,11 +44,11 @@ P2 can start as soon as P1 exists; it does **not** wait for the ML model. P6 nee
 | Milestone | After | Meaning | Done |
 |-----------|--------|---------|------|
 | M0 | P0 | Sample graph loads | [x] |
-| M1 | P1 | Candidate paths + feature table | [ ] |
-| M2 | P2 | RIP path ≠ OSPF path on sample topo | [ ] |
-| **M3 (demo)** | **P4** | AI path + SHAP/LIME text and figure | [ ] |
-| M4 | P5 | RIP vs OSPF vs AI comparison table | [ ] |
-| M5 | P6–P7 | Time-varying routes and/or Topology Zoo | [ ] |
+| M1 | P1 | Candidate paths + feature table | [x] |
+| M2 | P2 | RIP path ≠ OSPF path on sample topo | [x] |
+| **M3 (demo)** | **P4** | AI path + SHAP/LIME text and figure | [x] |
+| M4 | P5 | RIP vs OSPF vs AI comparison table | [x] |
+| M5 | P6–P7 | Time-varying routes and/or Topology Zoo | [x] |
 
 ---
 
@@ -59,20 +59,20 @@ Canonical snapshot: [phase-execution-status.md](phase-execution-status.md). Do n
 | Phase | Status | Effort | Checklist |
 |-------|--------|--------|-----------|
 | 0 Scaffold | **Done** | — | complete |
-| 1 Topology + features | Not started | 1–2 days | open |
-| 2 Classical baselines | Not started | 1–2 days | open |
-| 3 Labels + recommender | Not started | 2–3 days | open |
-| 4 XAI | Not started | 2–3 days | open |
-| 5 Compare | Not started | 1–2 days | open |
-| 6 Dynamics | Optional | ~2 days | open |
-| 7 Datasets / Mininet | Later | as needed | open |
+| 1 Topology + features | **Done** | — | complete |
+| 2 Classical baselines | **Done** | — | complete |
+| 3 Labels + recommender | **Done** | — | complete |
+| 4 XAI | **Done** | — | complete |
+| 5 Compare | **Done** | — | complete |
+| 6 Dynamics | **Done** | — | complete (SHAP per reroute; LIME when installed) |
+| 7 Datasets / Mininet | **Done** | — | complete; Mininet export generated, not run (needs Linux + root) |
 
 ### Standing rules (every phase)
 
 - [x] Bind any local service to `127.0.0.1` (`configs/default.json`)
 - [x] Treat `security_risk` as a number on the link, not as an attack to implement
-- [ ] Print lab-style traces (path, costs, top features) on CLI
-- [ ] Do not commit `data/raw/` dumps, large CAIDA files, or bulky `models/` weights
+- [x] Print lab-style traces (path, costs, top features) on CLI
+- [x] Do not commit `data/raw/` dumps, large CAIDA files, or bulky `models/` weights (`.gitignore`; verified with `git status`)
 
 ---
 
@@ -111,12 +111,12 @@ Canonical snapshot: [phase-execution-status.md](phase-execution-status.md). Do n
 
 **Checklist**
 
-- [ ] Read `k_candidate_paths` and `max_hops` from `configs/default.json`
-- [ ] Enumerate k candidate paths (Yen or hop-capped search)
-- [ ] Path features include: hops, sum/max delay, min bandwidth, max `security_risk`, mean congestion, sum/max loss, mean energy, max utilization, max queue, min reliability
-- [ ] Invalid `src`/`dst` (missing node or no path) fails with a clear message
-- [ ] CLI or script prints a table of paths and feature vectors
-- [ ] Feature column names are documented (P4/P5 must reuse them)
+- [x] Read `k_candidate_paths` and `max_hops` from `configs/default.json`
+- [x] Enumerate k candidate paths (Yen or hop-capped search) — `candidate_strategy`: hop-ordered and delay-ordered Yen, interleaved (`mixed`)
+- [x] Path features include: hops, sum/max delay, min bandwidth, max `security_risk`, mean congestion, sum/max loss, mean energy, max utilization, max queue, min reliability
+- [x] Invalid `src`/`dst` (missing node or no path) fails with a clear message
+- [x] CLI or script prints a table of paths and feature vectors
+- [x] Feature column names are documented (P4/P5 must reuse them) — [xai-dynamic-routing-methods.md](xai-dynamic-routing-methods.md) §3
 
 **Exit:** given `R1` → `R8`, a table of candidate paths and numeric features prints.
 
@@ -134,11 +134,11 @@ Canonical snapshot: [phase-execution-status.md](phase-execution-status.md). Do n
 
 **Checklist**
 
-- [ ] RIP-like: Dijkstra with unit hop cost; print path and hop count
-- [ ] OSPF-like: Dijkstra on `delay` (or `10^8/bandwidth` via config `ospf_cost`)
-- [ ] Print chosen path and total cost (lab-style)
-- [ ] Same `src`/`dst` can yield different RIP vs OSPF paths on the sample graph
-- [ ] Disconnected pair reports no path
+- [x] RIP-like: Dijkstra with unit hop cost; print path and hop count
+- [x] OSPF-like: Dijkstra on `delay` (or `10^8/bandwidth` via config `ospf_cost`)
+- [x] Print chosen path and total cost (lab-style)
+- [x] Same `src`/`dst` can yield different RIP vs OSPF paths on the sample graph
+- [x] Disconnected pair reports no path
 
 **Exit:** `R1` → `R8` shows two traces; paths differ at least once on the sample topology.
 
@@ -150,19 +150,20 @@ Canonical snapshot: [phase-execution-status.md](phase-execution-status.md). Do n
 |--|--|
 | **Depends on** | P1 feature table; a **label rule** (weighted QoS + security score, or argmin among k paths) |
 | **Does not depend on** | P2 (baselines are for comparison, not for training labels unless you choose that) |
-| **Produces** | `src/routing/recommender.py`, `scripts/train.py`, `scripts/infer.py`, weights in `models/` |
+| **Produces** | `src/routing/recommender.py`, `scoring.py`, `dataset.py`, `scripts/train.py`, `scripts/infer.py`, weights in `models/` |
 | **Python** | `scikit-learn` (Random Forest first); optional `xgboost` later |
 | **Blocks** | P4, P5 (AI column), P6 |
 
 **Checklist**
 
-- [ ] Document the scalar score (weights for delay, loss, congestion, `security_risk`, …)
-- [ ] Build a labeled table: each candidate path → score (or best-of-k class)
-- [ ] Train Random Forest (sklearn) on path features; skip RL
-- [ ] `scripts/train.py` writes a model under `models/`
-- [ ] `scripts/infer.py` prints recommended path for `src` `dst`
-- [ ] Held-out pairs: model picks a better-scoring path than hop-count more often than chance
-- [ ] Recommended routes written to `outputs/routes/`
+- [x] Document the scalar score (weights for delay, loss, congestion, `security_risk`, …)
+- [x] Build a labeled table: each candidate path → score (or best-of-k class) — default label: realized rule cost over the next `horizon_steps` of a simulated traffic trace (F-020); `rule_snapshot` keeps the earlier same-snapshot label
+- [x] Train Random Forest (sklearn) on path features + traffic-history features (F-010); skip RL
+- [x] Black-box MLP baseline on the same rows/inputs/labels, never explained (F-009)
+- [x] `scripts/train.py` writes a model under `models/`
+- [x] `scripts/infer.py` prints recommended path for `src` `dst`
+- [x] Held-out pairs: model picks a better-scoring path than hop-count more often than chance — 207 better / 348 tie / 46 worse over 601 held-out queries scored by realized future cost (sign test p = 7.2e-26); also reported vs min delay, snapshot rule, black-box MLP, and oracle
+- [x] Recommended routes written to `outputs/routes/`
 
 **Exit:** infer on `R1` `R8` prints a path; a model file exists; routes dump exists.
 
@@ -179,13 +180,13 @@ Canonical snapshot: [phase-execution-status.md](phase-execution-status.md). Do n
 
 **Checklist**
 
-- [ ] SHAP TreeExplainer (or KernelExplainer if not a tree) on the trained model
-- [ ] LIME on the same instance (one path or one src–dst)
-- [ ] Print: path chosen; top features with signed importance (e.g. delay, `security_risk`)
-- [ ] Feature names in explanations match P1 columns
-- [ ] Save text/JSON under `outputs/explanations/`
-- [ ] Save at least one SHAP or LIME figure under `outputs/figures/`
-- [ ] `scripts/infer.py` (or a flag) prints explanation with the path
+- [x] SHAP TreeExplainer (or KernelExplainer if not a tree) on the trained model
+- [x] LIME on the same instance (one path or one src–dst) — verified 2026-10-12 with `python scripts/infer.py --src R1 --dst R8 --explain` and `python scripts/run_tests.py` (`LimeTests` pass)
+- [x] Print: path chosen; top features with signed importance (e.g. delay, `security_risk`)
+- [x] Feature names in explanations match P1 columns
+- [x] Save text/JSON under `outputs/explanations/`
+- [x] Save at least one SHAP or LIME figure under `outputs/figures/`
+- [x] `scripts/infer.py` (or a flag) prints explanation with the path
 
 **Exit:** one recommendation includes a human-readable feature list plus a saved figure. **M3.**
 
@@ -202,12 +203,12 @@ Canonical snapshot: [phase-execution-status.md](phase-execution-status.md). Do n
 
 **Checklist**
 
-- [ ] Same `src`/`dst` (and same graph) for RIP, OSPF-like, and AI
-- [ ] Metrics: path delay, loss (sum or max), max `security_risk`, hop count
-- [ ] Include a short explanation snippet for the AI row
-- [ ] `scripts/compare.py` writes CSV and/or markdown
-- [ ] At least one comparison figure in `outputs/figures/`
-- [ ] Run on several pairs, not only `R1`–`R8`
+- [x] Same `src`/`dst` (and same graph) for RIP, OSPF-like, and AI
+- [x] Metrics: path delay, loss (sum or max), max `security_risk`, hop count
+- [x] Include a short explanation snippet for the AI row
+- [x] `scripts/compare.py` writes CSV and/or markdown
+- [x] At least one comparison figure in `outputs/figures/`
+- [x] Run on several pairs, not only `R1`–`R8`
 
 **Exit:** table RIP vs OSPF vs AI is reproducible from one command. **M4.**
 
@@ -223,12 +224,12 @@ Canonical snapshot: [phase-execution-status.md](phase-execution-status.md). Do n
 
 **Checklist**
 
-- [ ] Each step updates at least congestion, loss, or `security_risk` on some edges
-- [ ] Re-run recommender every step
-- [ ] Print path; if it changes, print old vs new
-- [ ] New SHAP/LIME reason printed on change (and optionally every step)
-- [ ] 10-step run on sample topology
-- [ ] At least one reroute occurs in the canned scenario
+- [x] Each step updates at least congestion, loss, or `security_risk` on some edges — drift, scripted events, and optionally the trained-on traffic model (`"traffic": true`)
+- [x] Re-run recommender every step, with each candidate's recent history
+- [x] Print path; if it changes, print old vs new
+- [x] New SHAP/LIME reason printed on change (and optionally every step) — SHAP + contrast vs previous path; LIME when installed
+- [x] 10-step run on sample topology
+- [x] At least one reroute occurs in the canned scenario
 
 **Exit:** 10-step log with ≥1 reroute and a printed reason.
 
@@ -244,12 +245,12 @@ Canonical snapshot: [phase-execution-status.md](phase-execution-status.md). Do n
 
 **Checklist**
 
-- [ ] M3 demo works on the sample graph first
-- [ ] Loader for Topology Zoo GML (or one exported topology)
-- [ ] Map or fill missing metrics (delay, risk) with documented defaults
-- [ ] `compare.py` runs on that topology
-- [ ] CAIDA/SNDlib files stay in `data/raw/` and are gitignored
-- [ ] Mininet / Packet Tracer only if a live demo is still required (bind `127.0.0.1`)
+- [x] M3 demo works on the sample graph first
+- [x] Loader for Topology Zoo GML (or one exported topology) — `.gml` and `.graphml`; GÉANT 2012 and Abilene tested; SNDlib native loader too
+- [x] Map or fill missing metrics (delay, risk) with documented defaults
+- [x] `compare.py` runs on that topology
+- [x] CAIDA/SNDlib files stay in `data/raw/` and are gitignored
+- [x] Mininet / Packet Tracer only if a live demo is still required (bind `127.0.0.1`) — `scripts/export_mininet.py` generates a Mininet script (not run: needs Linux + root). `scripts/packet_tracer.py` generates PTBuilder build/AI-route scripts, IOS configs, and a tracert verifier, tested against a PT-API mock; not yet run inside Packet Tracer (F-021).
 
 **Exit:** one non-toy topology produces a comparison table.
 
@@ -269,7 +270,8 @@ Do **not** start P4 before P3. Do **not** start Mininet before M3.
 ## 5. File dependency order
 
 ```
-src/topology/load.py                          [P0, exists]
+src/config.py, src/errors.py                  [P0 fixes: validated config, clear errors]
+src/topology/load.py                          [P0, validated]  zoo.py, sndlib.py [P7]
         ↓
 src/features/path_features.py                 [P1]
         ↓
@@ -280,11 +282,13 @@ src/features/path_features.py                 [P1]
                     ↓
         src/evaluate/compare.py               [P5]  ← also needs baselines
                     ↓
-        src/simulate/graph_sim.py             [P6]
+        src/simulate/graph_sim.py, runner.py  [P6]
 
-scripts/train.py  → P3
-scripts/infer.py  → P3, P4
-scripts/compare.py → P5
+scripts/features.py → P1      scripts/baselines.py → P2
+scripts/train.py  → P3        scripts/infer.py → P3, P4 (--explain)
+scripts/compare.py → P5       scripts/simulate.py → P6
+scripts/fetch_topology_zoo.py, export_mininet.py → P7
+scripts/demo.py (all), scripts/run_tests.py (tests)
 ```
 
 ---
@@ -318,13 +322,12 @@ Install from `projects/xai-dynamic-routing/requirements.txt`. Bind any later UI 
 
 ---
 
-## 8. Implementation order (next)
+## 8. Implementation order (done) and what remains
 
-1. **P1** — `path_features.py` + small CLI to print the feature table  
-2. **P2** — `baselines.py` (can overlap late P1)  
-3. **P3** — score labels + Random Forest + `train.py` / `infer.py`  
-4. **P4** — SHAP then LIME  
-5. **P5** — `compare.py`  
-6. P6 then P7 if time remains
+P1 → P2 → P3 → P4 → P5 → P6 → P7 are implemented and verified (see [phase-execution-status.md](phase-execution-status.md)). Remaining:
+
+1. ~~Install `lime` and verify the LIME checklist item~~ — done 2026-10-12 (F-018).
+2. Optional: run the exported Mininet script on a Linux host.
+3. Run the Packet Tracer build script inside PT and `verify` a tracert (F-021).
 
 When a phase is finished: tick its checklist, set Status to Done, and tick the matching milestone in section 1.

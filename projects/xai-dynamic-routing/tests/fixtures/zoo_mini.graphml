@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns">
+  <key attr.name="label" attr.type="string" for="node" id="d0" />
+  <key attr.name="label" attr.type="string" for="edge" id="d1" />
+  <graph edgedefault="directed">
+    <data key="d0">ignored</data>
+    <node id="n0"><data key="d0">Seattle</data></node>
+    <node id="n1"><data key="d0">Sunnyvale</data></node>
+    <node id="n2"><data key="d0">Denver</data></node>
+    <edge source="n0" target="n1"><data key="d1">OC-192c</data></edge>
+    <edge source="n1" target="n2"><data key="d1">1 GB/s</data></edge>
+    <edge source="n2" target="n0"><data key="d1">Purple Link</data></edge>
+  </graph>
+</graphml>

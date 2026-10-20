@@ -80,7 +80,7 @@ Windows: PowerShell (`.\scripts\run.ps1 p0`) often blocked by execution policy â
 - Print steps that would appear in a lab record (divisor, remainder, window, RTT, etc.).
 - Validate user input; fail with a clear message.
 - Servers bind `127.0.0.1` by default; take port as an argument or prompt.
-- Use `socket`, `struct`, and stdlib only unless the user asks otherwise.
+- Use `socket`, `struct`, and stdlib only unless the user asks otherwise. This applies to `labs/`; the capstone under `projects/xai-dynamic-routing/` is exempt (see `reference.md`) and may use any package listed in its `requirements.txt`.
 - Windows is the local OS: use PowerShell-friendly commands; no bash-only one-liners.
 
 ## Academic output
