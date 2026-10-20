@@ -175,7 +175,7 @@ ComputerNetworks/
         │   ├── packet_tracer/         # Packet Tracer build/verify integration
         │   └── evaluate/              # metrics vs baselines
         ├── notebooks/                 # EDA and explanation plots (optional)
-        ├── models/                    # saved weights (gitignored except tiny demo)
+        ├── models/                    # saved weights (gitignored entirely; regenerate with scripts/train.py)
         ├── outputs/
         │   ├── routes/                # recommended paths
         │   ├── explanations/          # SHAP/LIME artifacts
