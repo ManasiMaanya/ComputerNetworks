@@ -2,7 +2,7 @@
 
 Layer 3 path recommendation from QoS and security link metrics, using a Random Forest that scores k candidate paths from their current features and recent traffic history. It is trained to predict the cost each path will experience over the next few steps of a simulated traffic trace. Each recommendation comes with SHAP and LIME explanations and a comparison against RIP-like (hop count) and OSPF-like (Dijkstra) baselines and a black-box MLP. A time-stepped simulation reroutes when metrics change. The network can also be built in Cisco Packet Tracer from generated scripts.
 
-`security_risk` is a numeric link attribute (0–1) in a simulation. No attack or exploit content.
+`security_risk` is a numeric link attribute (0–1) in a simulation. The attack scenarios are metric-level node/link degradation simulations; there is no exploit or offensive content. Explanation-quality evaluation, a label-sensitivity study, and attribution-drift analysis are included beyond the demo path.
 
 Full method reference (features, units, scoring, training, XAI semantics, data provenance, limits): [`docs/xai-dynamic-routing-methods.md`](../../docs/xai-dynamic-routing-methods.md).
 
@@ -42,10 +42,20 @@ Or step by step:
 | P7 | `python scripts/fetch_topology_zoo.py --name Geant2012` then `python scripts/compare.py --topology data/raw/Geant2012.graphml --ospf-cost inverse_bandwidth` | comparison on a real topology, metric provenance |
 | P7 | `python scripts/export_mininet.py` | Mininet script (Linux + root needed to run it) |
 | P7 | `python scripts/packet_tracer.py export` | Packet Tracer build / AI-route scripts for PTBuilder + `GUIDE.md`; `export --no-ai` builds the baselines without a trained model; `verify --protocol ospf [--ai] --trace FILE` checks a PT tracert |
+| eval | `python scripts/explain_quality.py` | SHAP occlusion fidelity, SHAP/LIME agreement, LIME and Random Forest seed stability, latency |
+| eval | `python scripts/label_sensitivity.py --quick` | retrain under delay/risk/loss/hop-heavy, uniform, and seeded random cost weights; rule vs model path changes and transfer |
+| eval | `python scripts/attack_drift.py` | blackhole/compromised-node metric attacks, rerouting, SHAP attribution drift, signal-feature detection |
 | web | `scripts\web-local.cmd` | demo page with every phase on `http://127.0.0.1:8765/` |
 | tests | `python scripts/run_tests.py` | full suite (`--quick` skips the end-to-end script test) |
 
 Windows launchers: `scripts\demo.cmd`, `scripts\p0.cmd`, `scripts\tests.cmd`.
+
+The three `eval` scripts need a trained model (`python scripts/train.py`). `explain_quality.py`
+writes `outputs/reports/explanation_quality.{json,md}` and a figure; `label_sensitivity.py`
+retrains once per scenario, so `--quick --scenarios baseline,risk_heavy --random-weight-draws 0`
+is the fast exploratory run; `attack_drift.py` defaults to R5 blackhole and R7 compromised on the
+sample topology. Full report semantics are in
+[`docs/xai-dynamic-routing-methods.md`](../../docs/xai-dynamic-routing-methods.md), section 11.
 
 ## Layout
 
@@ -59,8 +69,12 @@ src/features/path_features.py     candidates + FEATURE_COLUMNS
 src/features/history.py           traffic-history features, MODEL_COLUMNS
 src/routing/                      baselines.py, scoring.py, dataset.py, recommender.py
 src/xai/explain.py                SHAP, LIME, figures
+src/xai/quality.py                occlusion fidelity, rank/top-k agreement, drift, latency
 src/evaluate/compare.py           comparison table, report, figure
-src/simulate/                     traffic.py, graph_sim.py, runner.py, mininet_export.py
+src/evaluate/explanation_quality.py  per-pair quality report + forest seed stability
+src/evaluate/label_sensitivity.py    alternate cost weights, retraining, transfer
+src/evaluate/attack_drift.py         SHAP drift before/after node attacks
+src/simulate/                     traffic.py, graph_sim.py, runner.py, attacks.py, mininet_export.py
 src/packet_tracer/                plan, IOS configs, PTBuilder scripts, route simulator, tracert check
 scripts/                          CLIs (see table above)
 tests/                            unittest suite + fixtures (tests/js/pt_mock.js: Packet Tracer API mock, needs Node.js)
@@ -69,7 +83,7 @@ models/, outputs/                 generated (gitignored); regenerate with script
 
 ## Outputs
 
-`outputs/routes/`, `outputs/explanations/`, `outputs/figures/`, `outputs/reports/`, `outputs/simulations/<scenario>/`, `outputs/mininet/`, `outputs/packet_tracer/`. See the methods doc, section 10.
+`outputs/routes/`, `outputs/explanations/`, `outputs/figures/`, `outputs/reports/`, `outputs/simulations/<scenario>/`, `outputs/mininet/`, `outputs/packet_tracer/`. The evaluation reports are `outputs/reports/explanation_quality.*`, `label_sensitivity.*`, and `attack_drift.*`, with matching figures. See the methods doc, section 10.
 
 ## Web demo (P0–P7)
 

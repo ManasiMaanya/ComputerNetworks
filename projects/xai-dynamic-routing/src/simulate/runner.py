@@ -86,7 +86,9 @@ def reroute_reason(changes: list[dict], old_path, new_path, old_before: dict, ol
 def run_simulation(graph: nx.Graph, scenario: Scenario, recommender, cfg: dict, out_dir: Path, *,
                    lime: bool = True, figures: bool = True, log=print) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
-    sim = GraphSimulator(graph, scenario, TrafficParams.from_config(cfg.get("traffic")))
+    sim = GraphSimulator(graph, scenario, TrafficParams.from_config(cfg.get("traffic")),
+                         attack_defaults=cfg.get("evaluation", {}).get("attacks"))
+    scenario = sim.scenario  # attacks are expanded into ordinary events here
     past = deque(maxlen=max(recommender.history_steps - 1, 1))
     event_edges = sorted({ev.edge for ev in scenario.events})
     history: list[dict] = []

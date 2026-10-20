@@ -73,6 +73,25 @@
     "seed": 42
   },
 
+  "evaluation": {
+    "explanation": {
+      "repeats": 3,
+      "model_seeds": 3,
+      "lime_seeds": 3,
+      "top_k": 5
+    },
+    "label_sensitivity": {
+      "random_weight_draws": 2,
+      "seed": 7
+    },
+    "attacks": {
+      "blackhole_loss": 0.99,
+      "blackhole_reliability": 0.10,
+      "compromised_risk": 0.95,
+      "compromised_loss": 0.05
+    }
+  },
+
   "paths": {
     "models_dir": "models",
     "outputs_dir": "outputs",

@@ -26,6 +26,27 @@ class ConfigTests(unittest.TestCase):
             validate_config(cfg)
         self.assertIn(fragment, str(ctx.exception))
 
+    def test_evaluation_section_defaults(self):
+        evaluation = self.cfg["evaluation"]
+        self.assertEqual(evaluation["explanation"]["top_k"], 5)
+        self.assertGreaterEqual(evaluation["explanation"]["model_seeds"], 1)
+        self.assertGreaterEqual(evaluation["label_sensitivity"]["random_weight_draws"], 0)
+        self.assertIn("blackhole_loss", evaluation["attacks"])
+        self.assertIn("compromised_risk", evaluation["attacks"])
+
+    def test_evaluation_validation(self):
+        for mutate, fragment in [
+            (lambda c: c["evaluation"]["explanation"].update(repeats=0), "repeats"),
+            (lambda c: c["evaluation"]["explanation"].update(lime_seeds="3"), "lime_seeds"),
+            (lambda c: c["evaluation"]["label_sensitivity"].update(random_weight_draws=-1),
+             "random_weight_draws"),
+            (lambda c: c["evaluation"]["attacks"].update(blackhole_reliability=0),
+             "blackhole_reliability"),
+            (lambda c: c["evaluation"]["attacks"].update(blackhole_loss=1.5), "blackhole_loss"),
+            (lambda c: c["evaluation"]["attacks"].update(compromised_risk="high"), "compromised_risk"),
+        ]:
+            self.bad(mutate, fragment)
+
     def test_missing_key(self):
         self.bad(lambda c: c.pop("max_hops"), "max_hops")
 

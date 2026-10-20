@@ -68,6 +68,7 @@ Python: 3.12 is tested (3.10+ is required for the type syntax). Dependencies: `r
 | `compare.pairs`, `random_pairs` | 7 sample pairs, 12 | Comparison pairs (§7) |
 | `simulation.scenario` | `configs/scenarios/sample_incident.json` | Default P6 scenario |
 | `simulation.hysteresis_margin` | 0.03 | P6 anti-flapping: hold the previous path unless the new pick is this much cheaper (relative); 0 disables it (§8) |
+| `evaluation.explanation`, `label_sensitivity`, `attacks` | see file | Evaluation defaults: SHAP repeats/top-k, LIME and RF seed counts; Dirichlet draws/seed; blackhole/compromised metric values (§11) |
 | `qrouting.train_steps`, `learning_rate`, `discount`, `seed` | 60, 0.7, 1.0, 11 | Q-routing baseline training (§7) |
 | `topology_zoo.*` | see file | Import defaults (§9) |
 
@@ -248,7 +249,7 @@ field measurements of a real network.
 - **Contrast.** `SHAP(chosen) − SHAP(other)` per feature sums exactly to the predicted-cost gap. "Other" is the runner-up for a single recommendation, or the previous path after a reroute (P6). It answers "why this path and not that one".
 - **LIME** (`LimeTabularExplainer`, regression, quartile discretisation, seeded). It explains the same instance, using training-feature background rows saved in `models/xai_background.csv`. The prediction function receives exactly `FEATURE_COLUMNS` in order. Its weights are a local linear surrogate's coefficients on discretised conditions (e.g. `max_security_risk <= 0.31`), with the same sign meaning. Its surrogate R² is reported. LIME is optional: without the `lime` package the run records `available: false` with the install command and continues with SHAP.
 
-**Scope.** Explanations describe the model, which is a learned surrogate of the configured scoring rule. They do not show causation in the network or prove a route globally optimal.
+**Scope.** Explanations describe the model, which is a learned surrogate of the configured scoring rule. They do not show causation in the network or prove a route globally optimal. Section 11 measures how faithful, stable and method-independent these explanations are.
 
 Outputs: `outputs/explanations/explain_<topology>_<src>_<dst>.json`, `outputs/figures/shap_<...>.png` (local SHAP plus contrast panel), and `outputs/figures/lime_<...>.png` when LIME is installed.
 
@@ -413,8 +414,12 @@ models/                         route_cost_rf.joblib (~18 MB), route_cost_mlp.jo
 data/processed/training_table.csv                                            (gitignored)
 outputs/routes/route_<topo>_<src>_<dst>.json
 outputs/explanations/explain_<topo>_<src>_<dst>.json
-outputs/figures/shap_*.png, lime_*.png, compare_*.png
+outputs/figures/shap_*.png, lime_*.png, compare_*.png,
+                explanation_quality.png, label_sensitivity.png, attack_drift.png
 outputs/reports/compare_<topo>[_ospf-<cost>].csv|md
+outputs/reports/explanation_quality.json|md
+outputs/reports/label_sensitivity.json|md
+outputs/reports/attack_drift.json|md
 outputs/simulations/<scenario>/history.csv|json, timeline.png, explain_*/shap_* per reroute
 outputs/mininet/<topo>_mininet.py
 outputs/packet_tracer/build_*.js, ai_routes*.js, configs/, manifest.json, GUIDE.md
@@ -424,13 +429,101 @@ All generated outputs are gitignored. Regenerate them with `python scripts/demo.
 
 ---
 
-## 11. Tests
+## 11. Evaluation beyond accuracy
 
-`python scripts/run_tests.py` (stdlib `unittest`; `pytest tests` also works if installed). Integration tests train a small model once into a temp folder, so the real `models/` is never touched. `tests/test_scripts_e2e.py` runs every CLI script with a temp config and checks the files it writes. The LIME test is skipped, with the reason printed, when `lime` is not installed. `tests/test_packet_tracer.py` runs the generated PTBuilder scripts under Node against `tests/js/pt_mock.js` (skipped if Node.js is missing). 193 tests.
+These analyses answer questions the demo does not: can the explanation be trusted, does the model merely encode the scoring formula, and do explanations move when the network is attacked? All three need a trained model and write to `outputs/reports/` and `outputs/figures/`.
+
+### 11.1 Explanation quality (`src/xai/quality.py`, `scripts/explain_quality.py`)
+
+For one recommendation, with `MODEL_COLUMNS` as the feature set:
+
+- **Occlusion fidelity.** Replace each feature of the chosen row by the median of the saved training background and compute `occ_i = f(x) − f(x with feature i replaced)`. Positive `occ_i` means the feature's actual value raised the predicted cost, the same sign as SHAP. Report the Spearman correlation of the signed vectors and top-5 overlap by magnitude. This is a model perturbation, not a causal intervention; replacing `sum_delay` while leaving `hops` fixed can create an impossible path.
+- **Comprehensiveness / sufficiency.** Replacing the top-k attributed features should change the prediction more than replacing a random k-subset (`comprehensiveness_advantage`); keeping only the top-k and replacing the rest should preserve it better than a random subset (`sufficiency_advantage`). Both are averaged over 64 seeded random subsets (or all subsets when k equals the feature count).
+- **SHAP vs LIME agreement.** Spearman, top-k Jaccard/overlap, sign agreement and cosine distance between the two signed vectors for the same instance.
+- **LIME seed stability.** The same LIME run with seeds 42/43/44; pairwise rank/top-k agreement. SHAP is deterministic for one forest, so its seed stability is not meaningful.
+- **Random Forest seed stability.** Retrain the forest with seeds 42/43/44 on the **same** labeled table and compare SHAP for the same queries. This isolates model variance from data-sampling variance and reports whether the chosen path and the explanation ranking stay the same.
+- **Latency.** Median/mean/p95 wall-clock milliseconds, including explainer construction. This is a local measurement, not a deployment benchmark.
+
+Full run on the sample topology, 7 pairs, default model (`outputs/reports/explanation_quality.json`):
+
+| Metric | Value |
+|--------|------:|
+| SHAP occlusion fidelity (Spearman) | 0.558 |
+| SHAP top-5 overlap with occlusion | 0.629 |
+| SHAP comprehensiveness advantage | 0.399 |
+| SHAP sufficiency advantage | 0.156 |
+| LIME occlusion fidelity (Spearman) | 0.496 |
+| LIME top-5 overlap with occlusion | 0.743 |
+| SHAP vs LIME Spearman | 0.843 |
+| SHAP vs LIME top-5 overlap | 0.810 |
+| SHAP vs LIME sign agreement | 0.796 |
+| LIME seed stability (Spearman) | 0.815 |
+| LIME seed top-5 overlap | 0.914 |
+| RF seed stability (Spearman) | 0.995 |
+| RF seed top-5 overlap | 0.957 |
+| RF seed chosen-path agreement | 1.000 |
+| RF seed agreement with production model | 1.000 |
+| SHAP median latency | 1,035 ms |
+| LIME median latency | 146 ms |
+| LIME mean surrogate R² | 0.205 |
+
+Reading: the two methods agree well on this model, and different RF seeds produce almost the same explanation and the same path. Occlusion fidelity is moderate (0.56), so the SHAP ranking is not a complete description of which features the forest reacts to; correlated features and the median baseline both contribute. LIME's linear surrogate explains only about 20 % of the local variance, so its individual weights should be read as an approximate cross-check, not a second ground truth. SHAP latency is dominated by constructing `TreeExplainer`, not by the 18-feature prediction.
+
+### 11.2 Label sensitivity (`src/evaluate/label_sensitivity.py`, `scripts/label_sensitivity.py`)
+
+Default labels are the scoring rule's realized cost over the next horizon. The objection is "the model just learns your formula." The study changes the formula and retrains:
+
+- `delay_heavy` (delay ×4), `risk_heavy` (security risk ×4), `loss_congestion_heavy` (loss and congestion ×3), `hop_heavy` (hops ×10), `uniform` (equal weights), plus seeded Dirichlet draws. Each vector is rescaled to the baseline weight total so the hard-risk penalty keeps the same relative strength. References and the risk limit are unchanged.
+- For every scenario, the table is regenerated (traffic seeding is fixed), the forest is retrained, and the same held-out queries are scored. Two change rates are compared: the **rule's** argmin path vs the baseline weights, and the **retrained model's** pick vs the baseline model. `transfer_*` scores the baseline model against the new labels without retraining.
+- A model that merely re-implements the formula should have `model_change_rate ≈ rule_change_rate`. Substantial divergence in either direction means the learned forecast does not reproduce every weight-induced pick; it is not evidence of a hidden objective.
+
+This is deliberately policy-conditional: the study tests adaptation to a declared policy, not discovery of a weight-free "true" cost. Runtime is roughly one training run per scenario; `--quick` is for exploration, and `--scenarios baseline,risk_heavy --random-weight-draws 0` is the smallest useful run.
+
+Full run, six scenarios, 601 held-out queries (`outputs/reports/label_sensitivity.json`):
+
+| Scenario | Rule pick changed | Model pick changed | Retrained top-1 | Baseline model transferred |
+|----------|------------------:|-------------------:|----------------:|---------------------------:|
+| baseline | 0.000 | 0.000 | 0.820 | 0.820 |
+| delay_heavy | 0.131 | 0.161 | 0.852 | 0.790 |
+| risk_heavy | 0.135 | 0.131 | 0.855 | 0.807 |
+| loss_congestion_heavy | 0.097 | 0.101 | 0.804 | 0.774 |
+| hop_heavy | 0.050 | 0.068 | 0.840 | 0.819 |
+| uniform | 0.136 | 0.121 | 0.817 | 0.779 |
+
+Mean rule change 0.110, mean model change 0.117, cross-scenario correlation **0.882**. Retrained top-1 averages 0.834 vs 0.794 for the baseline model transferred to the new labels (gap 0.040).
+
+Reading: the model does track the policy — when the weights move the rule's pick, the retrained model usually moves too, and the correlation is high. It is not a literal copy: per-scenario rates differ (delay-heavy moves the model more than the rule; uniform moves it less), and the old model loses about four top-1 points when the labels change, so retraining on the new definition is what adapts it. The honest claim is "learned, policy-conditional outcome model", not "weight-free ground truth".
+
+### 11.3 Attack scenarios and attribution drift (`src/simulate/attacks.py`, `src/evaluate/attack_drift.py`)
+
+Two metric-level node attacks:
+
+- **blackhole**: every incident link gets `loss=0.99`, `reliability=0.10` (values configurable under `evaluation.attacks`).
+- **compromised**: every incident link gets `security_risk=0.95`, above the 0.65 limit, plus a small loss bump (`0.05`).
+
+A scenario declares `"attacks": [{"kind": "blackhole", "node": "R5", "step": 2}]`. `GraphSimulator` expands an attack into a `set` event per incident edge, reasserted at every step from `step` onward, so a later traffic update cannot partially undo the attack and the existing timeline, reroute explanations and hysteresis work unchanged. Shipped examples: `configs/scenarios/blackhole_r5.json` and `configs/scenarios/compromised_r7.json` (both R3→R8, whose initial path uses R5/R7).
+
+`scripts/attack_drift.py` applies the attack once, finds the **same candidate path** in the before/after candidate sets, and compares its signed SHAP vectors:
+
+- `attribution_drift` = cosine distance (0 = same direction, 2 = opposite); also Spearman, top-k overlap and `top_feature_changed`.
+- **Signal detection**: for blackhole the signal feature is `sum_loss`; for compromised it is `max_security_risk`. `detected` means the signal's contribution increased and it entered the top-k after the attack.
+- **Reroute / avoidance**: whether the chosen path changed, whether the attacked node is still on it, and whether the node is an endpoint (an attack on the destination cannot be avoided).
+
+Full run, 7 default pairs × 2 attacks (`outputs/reports/attack_drift.json`): 5 of 14 pair-attacks had the attacked node on the baseline path. On those affected pairs, detection was **5/5** and mean cosine drift **1.58**; only 2/5 rerouted, because R7 is the destination on three pairs and cannot be avoided. Across both attacks (14 pair-attacks, including the 9 unaffected) the reroute rate was 0.143 and detection 0.357; among avoidable pairs the model avoided the attacked node in **100 %**. The per-attack split is in the JSON: blackhole R5 affected 1 pair (detected, rerouted), compromised R7 affected 4 (all detected; the one avoidable pair rerouted). This is consistent with attribution-drift monitoring: explanations on an affected path move sharply and the attack's signal feature rises, while unaffected paths stay flat. It is a candidate alarm, not proof of an attack; a temporal threshold is not calibrated here.
+
+### 11.4 Tests and limitations
+
+The new analyses have focused unit tests (`tests/test_explanation_quality.py`, `test_label_sensitivity.py`, `test_attacks.py`) plus end-to-end CLI checks in `tests/test_scripts_e2e.py`. The full suite count is on the status board. The metrics are evaluation instruments, not new routing claims; see the limitations in §13.
 
 ---
 
-## 12. Known limitations
+## 12. Tests
+
+`python scripts/run_tests.py` (stdlib `unittest`; `pytest tests` also works if installed). Integration tests train a small model once into a temp folder, so the real `models/` is never touched. `tests/test_scripts_e2e.py` runs every CLI script with a temp config and checks the files it writes. The LIME test is skipped, with the reason printed, when `lime` is not installed. `tests/test_packet_tracer.py` runs the generated PTBuilder scripts under Node against `tests/js/pt_mock.js` (skipped if Node.js is missing). The suite includes the three evaluation modules and their CLI paths.
+
+---
+
+## 13. Known limitations
 
 - The objective is a hand-set scoring rule. With `future_outcome` labels the model predicts the rule cost a path will experience, so it no longer just imitates the rule; but "good" is still defined by those weights, and the futures come from a simulated traffic model (§5.1), not measured traffic.
 - Under the default traffic model the explained RF roughly ties the snapshot rule on held-out data (status board): bursts rarely change which candidate is best, so history adds little. RIP-like and OSPF-like picks are far worse.
@@ -440,3 +533,8 @@ All generated outputs are gitignored. Regenerate them with `python scripts/demo.
 - The sample graph is synthetic. Imported Zoo/SNDlib graphs use synthetic QoS/risk values and, for GraphML sources, default delays (all labelled).
 - Simulation is a discrete metric-update model with no packets, queues, or protocol convergence timing. The Mininet export and the Packet Tracer scripts are untested on those platforms here.
 - SHAP/LIME explain the model output, not causal network behaviour. LIME depends on discretisation and sampling (seeded).
+- Explanation fidelity uses median occlusion, which can create feature combinations no real path has; it tests faithfulness to the model, not correctness of the route. On the sample topology SHAP–occlusion rank correlation is 0.56, so the explanation is informative but incomplete.
+- LIME's local surrogate R² is about 0.21 on the sample pairs; its weights are a rough cross-check. Seed stability (0.81) is good, but stability does not make the surrogate exact.
+- Label sensitivity retrains on labels generated by each weight vector; a low model change rate means the learned forecast does not reproduce every rule flip, not that the model has discovered an objective independent of the weights. The study does not search the full weight simplex.
+- Attack scenarios are metric overrides on incident links, not packet-level attacks. Attribution drift is descriptive: detection is defined by top-k SHAP ranking and has no calibrated false-alarm rate over time.
+- The RF seed-stability result uses one training table and three seeds; it isolates forest variance, not variance from re-sampling the traffic traces.

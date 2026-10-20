@@ -20,6 +20,11 @@ switch ($Step.ToLower()) {
     { $_ -in @("compare", "p5") } { python scripts/compare.py @Rest; exit $LASTEXITCODE }
     { $_ -in @("simulate", "p6") } { python scripts/simulate.py @Rest; exit $LASTEXITCODE }
     { $_ -in @("traffic", "p6-traffic") } { python scripts/simulate.py --scenario configs/scenarios/traffic_dynamics.json @Rest; exit $LASTEXITCODE }
+    { $_ -in @("blackhole", "attack-blackhole") } { python scripts/simulate.py --scenario configs/scenarios/blackhole_r5.json @Rest; exit $LASTEXITCODE }
+    { $_ -in @("compromised", "attack-compromised") } { python scripts/simulate.py --scenario configs/scenarios/compromised_r7.json @Rest; exit $LASTEXITCODE }
+    { $_ -in @("quality", "explain-quality") } { python scripts/explain_quality.py @Rest; exit $LASTEXITCODE }
+    { $_ -in @("sensitivity", "label-sensitivity") } { python scripts/label_sensitivity.py @Rest; exit $LASTEXITCODE }
+    { $_ -in @("drift", "attack-drift") } { python scripts/attack_drift.py @Rest; exit $LASTEXITCODE }
     { $_ -in @("zoo", "p7") } { python scripts/fetch_topology_zoo.py @Rest; exit $LASTEXITCODE }
     { $_ -in @("mininet") } { python scripts/export_mininet.py @Rest; exit $LASTEXITCODE }
     { $_ -in @("pt", "packet-tracer") } { python scripts/packet_tracer.py export @Rest; exit $LASTEXITCODE }
@@ -47,7 +52,7 @@ switch ($Step.ToLower()) {
     { $_ -in @("web-test", "webtest") } { python scripts/web_health.py; exit $LASTEXITCODE }
     { $_ -in @("web", "web-local") } { python -m uvicorn web.app:app --host 127.0.0.1 --port 8765; exit $LASTEXITCODE }
     default {
-        Write-Error "Unknown step '$Step'. Use p0, p1, p2, train, infer, compare, simulate, traffic, zoo, mininet, pt, demo, tests, web, web-up, web-down, web-test."
+        Write-Error "Unknown step '$Step'. Use p0, p1, p2, train, infer, compare, simulate, traffic, blackhole, compromised, quality, sensitivity, drift, zoo, mininet, pt, demo, tests, web, web-up, web-down, web-test."
         exit 1
     }
 }

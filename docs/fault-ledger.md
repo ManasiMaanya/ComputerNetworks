@@ -41,6 +41,7 @@ Approve by ID. Do not treat “fix everything” as approval unless they list ID
 | F-020 | Med | corrected | design | Labels were the rule cost of the same snapshot the model sees (model could only imitate the rule) |
 | F-021 | Info | open | testbed | Packet Tracer scripts verified against a PT-API mock only, not inside Packet Tracer |
 | F-022 | Low | corrected | testbed | Packet Tracer export required a trained model (and the ML stack) even for baseline builds |
+| F-023 | Low | corrected | eval | Occlusion fidelity used the opposite sign to SHAP |
 
 ---
 
@@ -308,6 +309,16 @@ Approve by ID. Do not treat “fix everything” as approval unless they list ID
 | **Where** | `scripts/packet_tracer.py`, `src/packet_tracer/` |
 | **Observed** | `export` imported `RouteRecommender` at module level and loaded `models/route_cost_rf.joblib` unconditionally, so no `build_ospf.js` / `build_rip.js` could be generated from a clean checkout. The model is not committed, and this machine's scipy DLL is blocked by an Application Control policy, so the import failed before any baseline work. The PT build therefore depended on the ML phases it exists to demonstrate. |
 | **Resolution** | 2026-10-20 (user selected this task): added `export --no-ai`, which writes both build scripts, `configs/`, `manifest.json` (`baseline_only: true`, empty `pairs`) and `GUIDE.md` without importing scikit-learn or loading a model; the recommender import is now lazy and a failure names `--no-ai`. `verify --ai` on such a manifest explains that a re-export is needed. Tests: `tests/test_packet_tracer.py::CliExportTests` (19 tests in that file, OK; full suite 193 tests OK, 1 skipped). |
+
+### F-023 — Occlusion fidelity used the opposite sign to SHAP
+
+| | |
+|--|--|
+| **Severity** | Low |
+| **Status** | corrected |
+| **Where** | `src/xai/quality.py` |
+| **Observed** | The first occlusion implementation reported `prediction(replaced) - prediction(original)`. Replacing a feature with a low background median then looked like a negative contribution even when the feature raised cost, so SHAP and occlusion anti-correlated (R1→R8 ρ = −0.38) while ranking the same features. |
+| **Resolution** | 2026-10-20: report `prediction(original) - prediction(replaced)`, matching SHAP's sign (positive = raises cost / argues against the path). R1→R8 became +0.38 and the 7-pair mean is 0.558. `tests/test_explanation_quality.py::OcclusionSignTests` pins the convention. |
 
 ## How to approve
 
