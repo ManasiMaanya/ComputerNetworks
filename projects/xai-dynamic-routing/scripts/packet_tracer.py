@@ -1,6 +1,7 @@
 """Cisco Packet Tracer integration (Phase 7 testbed): build the network in PT and verify paths.
 
     python scripts/packet_tracer.py export                       # sample topology, demo pairs
+    python scripts/packet_tracer.py export --no-ai               # baselines only, no model needed
     python scripts/packet_tracer.py export --pair R1 R7 --pair R3 R6
     python scripts/packet_tracer.py export --topology data/raw/topology-zoo/gml/gml/Abilene.gml
     python scripts/packet_tracer.py verify --protocol ospf --trace trace.txt
@@ -12,6 +13,8 @@
     configs/<protocol>/<router>.txt     the same IOS configs, for manual pasting
     manifest.json, GUIDE.md             AI paths, expected tracert paths, step-by-step guide
 Without --pair it picks up to 3 pairs where the AI's path differs from every OSPF path.
+--no-ai builds just the OSPF/RIP network: it does not import the ML stack, so it works
+before `scripts/train.py` has run and on machines where sklearn/scipy is unavailable.
 
 `verify` checks tracert output copied from a PT PC against the router path the generated configs
 should produce (src/packet_tracer/routesim.py simulates those exact IOS lines).
@@ -30,16 +33,37 @@ if str(ROOT) not in sys.path:
 
 from src.cli import banner, rel, run
 from src.config import load_config, output_dir, project_dir, resolve_input_path, resolve_path
+from src.errors import ModelError
 from src.packet_tracer import PacketTracerError
 from src.packet_tracer.ios import PROTOCOLS, merge_routes, router_config, static_route_lines
 from src.packet_tracer.plan import ROUTER_MODEL, build_plan
 from src.packet_tracer.ptbuilder import build_script, routes_script
 from src.packet_tracer.routesim import RoutingSimulation
 from src.packet_tracer.tracert import check_trace
-from src.routing.recommender import RouteRecommender
 from src.topology.load import load_topology
 
 MAX_DEMO_PAIRS = 3
+
+
+def _recommender(cfg):
+    """Load the explained model, explaining how to build without it.
+
+    Imported lazily so `export --no-ai` works on a machine with no ML stack
+    (scikit-learn/scipy) and before `scripts/train.py` has produced a model.
+    """
+    try:
+        from src.routing.recommender import RouteRecommender
+    except (ImportError, OSError) as exc:
+        raise PacketTracerError(
+            f"the AI path needs scikit-learn/scipy, which failed to import: {exc}; "
+            "run `export --no-ai` to build only the OSPF/RIP baselines"
+        ) from exc
+    try:
+        return RouteRecommender.load(project_dir(cfg, "models_dir"), cfg)
+    except ModelError as exc:
+        raise PacketTracerError(
+            f"{exc}; alternatively run `export --no-ai` to build only the OSPF/RIP baselines"
+        ) from exc
 
 
 def _configs(plan, protocol, ai_routes=None) -> dict[str, list[str]]:
@@ -84,13 +108,20 @@ def _fmt(paths) -> str:
 
 
 def export(args, cfg) -> int:
+    no_ai = getattr(args, "no_ai", False)
+    if no_ai and args.pair:
+        raise PacketTracerError("--no-ai and --pair are mutually exclusive: pinning a pair needs the model")
     topo = resolve_input_path(args.topology) if args.topology else resolve_path(cfg["sample_topology"])
     graph = load_topology(topo, cfg)
     plan = build_plan(graph)
-    recommender = RouteRecommender.load(project_dir(cfg, "models_dir"), cfg)
 
-    pairs = ([(s, d, _ai_path(graph, recommender, s, d)) for s, d in args.pair] if args.pair
-             else _pick_demo_pairs(graph, plan, recommender))
+    recommender = None if no_ai else _recommender(cfg)
+    if no_ai:
+        pairs = []
+    elif args.pair:
+        pairs = [(s, d, _ai_path(graph, recommender, s, d)) for s, d in args.pair]
+    else:
+        pairs = _pick_demo_pairs(graph, plan, recommender)
     ai_routes = merge_routes(plan, [p for _, _, p in pairs]) if pairs else {}
     sims = {p: _sim(plan, p) for p in PROTOCOLS}
     ai_sims = {p: _sim(plan, p, ai_routes) for p in PROTOCOLS}
@@ -119,6 +150,7 @@ def export(args, cfg) -> int:
     manifest = {
         "topology": rel(topo),
         "router_model": ROUTER_MODEL,
+        "baseline_only": no_ai,
         "pairs": [{
             "src": s, "dst": d, "src_pc": plan.hosts[s].name, "dst_ip": plan.hosts[d].ip, "ai_path": path,
             "expected": {
@@ -141,7 +173,10 @@ def export(args, cfg) -> int:
         print(f"\n{entry['src']} -> {entry['dst']}  (tracert {entry['dst_ip']} from {entry['src_pc']})")
         for mode, paths in entry["expected"].items():
             print(f"  {mode:9s} {_fmt(tuple(p) for p in paths)}")
-    if not pairs:
+    if not pairs and no_ai:
+        print("\nbaseline-only export: the model was not loaded and no ai_routes.js was written."
+              "\nrun `python scripts/train.py` then re-run export without --no-ai to pin AI paths")
+    elif not pairs:
         print("\nno pair found where the AI path differs from OSPF's, so no ai_routes.js was written;"
               "\npin one anyway with --pair SRC DST")
     print(f"\nwritten to {rel(out)}  (start with GUIDE.md)")
@@ -182,7 +217,10 @@ def _guide(manifest) -> str:
         "",
         "```",
         "python scripts/packet_tracer.py verify --protocol ospf --trace trace.txt",
-        "python scripts/packet_tracer.py verify --protocol ospf --ai --trace trace.txt   # after ai_routes.js",
+    ]
+    if not manifest.get("baseline_only"):
+        lines.append("python scripts/packet_tracer.py verify --protocol ospf --ai --trace trace.txt   # after ai_routes.js")
+    lines += [
         "```",
         "",
         "## AI routes",
@@ -191,6 +229,10 @@ def _guide(manifest) -> str:
     if manifest["pairs"]:
         lines += ["Paste `ai_routes.js` into the Builder Code Editor and Run: static routes pin the pairs",
                   "below to the AI's path. `ai_routes_undo.js` removes them again.", ""]
+    elif manifest.get("baseline_only"):
+        lines += ["This is a **baseline-only** export (`--no-ai`): no model was loaded, so there is no",
+                  "`ai_routes.js` and every `tracert` should follow the OSPF or RIP path. To add the AI",
+                  "comparison, run `python scripts/train.py` and re-export without `--no-ai`.", ""]
     else:
         lines += ["No pair was found where the AI's path differs from OSPF's, so no `ai_routes.js` was",
                   "written. Re-run `export --pair SRC DST` to pin a pair anyway.", ""]
@@ -212,7 +254,13 @@ def verify(args, cfg) -> int:
         raise PacketTracerError(f"{manifest_path} not found; run `python scripts/packet_tracer.py export` first")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     plan = build_plan(load_topology(resolve_input_path(manifest["topology"]), cfg))
-    ai_routes = merge_routes(plan, [e["ai_path"] for e in manifest["pairs"]]) if args.ai else None
+    pairs = manifest.get("pairs", [])
+    if args.ai and not pairs:
+        reason = ("this is a baseline-only export (`--no-ai`)" if manifest.get("baseline_only")
+                  else "no pair differs from OSPF in this export")
+        raise PacketTracerError(f"manifest.json has no AI pairs: {reason}; re-run export without "
+                                "--no-ai (after `python scripts/train.py`) and apply ai_routes.js")
+    ai_routes = merge_routes(plan, [e["ai_path"] for e in pairs]) if args.ai else None
     sim = _sim(plan, args.protocol, ai_routes)
     trace_file = Path(args.trace)
     if args.trace != "-" and not trace_file.is_file():
@@ -251,8 +299,11 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     exp = sub.add_parser("export", help="write PTBuilder scripts, IOS configs and the guide")
     exp.add_argument("--topology", default=None, help="topology file (default: sample topology)")
-    exp.add_argument("--pair", nargs=2, action="append", metavar=("SRC", "DST"),
-                     help="pair to pin to the AI path (repeatable; default: up to 3 pairs where AI != OSPF)")
+    choose = exp.add_mutually_exclusive_group()
+    choose.add_argument("--pair", nargs=2, action="append", metavar=("SRC", "DST"),
+                        help="pair to pin to the AI path (repeatable; default: up to 3 pairs where AI != OSPF)")
+    choose.add_argument("--no-ai", action="store_true",
+                        help="build only the OSPF/RIP baselines: no model import, no ai_routes.js")
     exp.add_argument("--out", default=None, help="output folder (default: outputs/packet_tracer)")
     ver = sub.add_parser("verify", help="check tracert output from a PT PC")
     ver.add_argument("--protocol", choices=PROTOCOLS, required=True)

@@ -214,6 +214,51 @@ class CliVerifyTests(unittest.TestCase):
         self.assertEqual(verify("rip", False, "ospf.txt"), 0)
 
 
+class CliExportTests(unittest.TestCase):
+    """`export --no-ai` must build the baselines without importing the model stack."""
+
+    @classmethod
+    def setUpClass(cls):
+        spec = importlib.util.spec_from_file_location("pt_cli_export", ROOT / "scripts" / "packet_tracer.py")
+        cls.cli = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.cli)
+        cls.cfg = load_config()
+        cls.plan = build_plan(sample_graph())
+
+    def export(self, work, **overrides):
+        args = argparse.Namespace(**{"topology": None, "pair": None, "out": str(work), "no_ai": True, **overrides})
+        return self.cli.export(args, self.cfg)
+
+    def test_baseline_only_export_needs_no_model(self):
+        work = tmp_dir()
+        self.assertEqual(self.export(work), 0)
+        for protocol in PROTOCOLS:
+            self.assertTrue((work / f"build_{protocol}.js").is_file())
+            self.assertTrue((work / "configs" / protocol / "R1.txt").is_file())
+        self.assertFalse((work / "ai_routes.js").exists())
+        self.assertFalse((work / "ai_routes_undo.js").exists())
+        manifest = json.loads((work / "manifest.json").read_text(encoding="utf-8"))
+        self.assertTrue(manifest["baseline_only"])
+        self.assertEqual(manifest["pairs"], [])
+        self.assertIn("baseline-only", (work / "GUIDE.md").read_text(encoding="utf-8"))
+
+        dst_ip = self.plan.hosts["R7"].ip
+        (work / "trace.txt").write_text(trace_for(self.plan, ["R1", "R3", "R5", "R7"], dst_ip), encoding="utf-8")
+        self.assertEqual(self.cli.verify(argparse.Namespace(protocol="ospf", ai=False, trace=str(work / "trace.txt"),
+                                                           out=str(work)), self.cfg), 0)
+
+    def test_no_ai_and_pair_are_rejected(self):
+        with self.assertRaises(PacketTracerError):
+            self.export(tmp_dir(), pair=[["R1", "R7"]])
+
+    def test_verify_ai_on_a_baseline_only_export_says_to_re_export(self):
+        work = tmp_dir()
+        self.assertEqual(self.export(work), 0)
+        with self.assertRaisesRegex(PacketTracerError, "baseline-only"):
+            self.cli.verify(argparse.Namespace(protocol="ospf", ai=True, trace=str(work / "missing.txt"),
+                                              out=str(work)), self.cfg)
+
+
 @unittest.skipIf(NODE is None, "Node.js not installed")
 class GeneratedScriptTests(unittest.TestCase):
     """Run the generated PTBuilder JavaScript against the PT API mock."""
