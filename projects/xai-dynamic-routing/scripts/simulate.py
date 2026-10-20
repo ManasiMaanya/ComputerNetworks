@@ -21,6 +21,7 @@ from src.cli import banner, rel, run
 from src.config import load_config, output_dir, project_dir, resolve_input_path, resolve_path
 from src.routing.recommender import RouteRecommender
 from src.simulate.graph_sim import load_scenario
+from src.simulate.real_traffic import discover_matrix_files, real_trace
 from src.simulate.runner import run_simulation
 from src.topology.load import load_topology
 
@@ -44,17 +45,27 @@ def main() -> int:
     graph = load_topology(topo, cfg)
     recommender = RouteRecommender.load(project_dir(cfg, "models_dir"), cfg)
 
+    real_graphs = None
+    if scenario.real_traffic_dir:
+        matrix_dir = resolve_input_path(scenario.real_traffic_dir)
+        matrix_paths = discover_matrix_files(matrix_dir)
+        real_graphs = real_trace(graph, matrix_paths, cfg).graphs
+
     banner(f"Phase 6: dynamic routing scenario '{scenario.name}'")
     print(f"scenario: {rel(scen_path)}  topology: {rel(topo)}  {scenario.src} -> {scenario.dst}  "
           f"steps={scenario.steps} seed={scenario.seed}")
-    print(f"drift: {', '.join(scenario.drift_metrics) or 'none'} sigma={scenario.drift_sigma}  "
-          f"events: {len(scenario.events)}  hysteresis_margin={cfg['simulation']['hysteresis_margin']:.0%}")
+    if scenario.real_traffic_dir:
+        print(f"real traffic: {rel(matrix_dir)} ({len(real_graphs)} snapshot(s))  "
+              f"events: {len(scenario.events)}")
+    else:
+        print(f"drift: {', '.join(scenario.drift_metrics) or 'none'} sigma={scenario.drift_sigma}  "
+              f"events: {len(scenario.events)}  hysteresis_margin={cfg['simulation']['hysteresis_margin']:.0%}")
     if scenario.description:
         print(scenario.description)
 
     out = output_dir(cfg, "simulations", scenario.name)
     result = run_simulation(graph, scenario, recommender, cfg, out, lime=not args.no_lime,
-                            figures=not args.no_figures)
+                            figures=not args.no_figures, real_graphs=real_graphs)
 
     banner("path history")
     for r in result["history"]:

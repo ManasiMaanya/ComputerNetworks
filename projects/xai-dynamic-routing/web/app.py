@@ -52,6 +52,7 @@ from src.routing.qrouting import train_qrouting  # noqa: E402
 from src.routing.recommender import BLACKBOX_FILE, MODEL_FILE, REPORT_FILE, RouteRecommender  # noqa: E402
 from src.routing.scoring import path_cost  # noqa: E402
 from src.simulate.graph_sim import load_scenario  # noqa: E402
+from src.simulate.real_traffic import discover_matrix_files, real_trace  # noqa: E402
 from src.simulate.runner import run_simulation  # noqa: E402
 from src.topology.load import EDGE_ATTRS, load_topology  # noqa: E402
 from src.topology.provenance import provenance_summary  # noqa: E402
@@ -402,7 +403,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
             sc = load_scenario(f)
             out.append({"id": sid, "name": sc.name, "description": sc.description, "src": sc.src,
                         "dst": sc.dst, "steps": sc.steps, "traffic": sc.traffic, "events": len(sc.events),
-                        "topology": sc.topology})
+                        "topology": sc.topology, "real_traffic_dir": sc.real_traffic_dir})
         return {"default": Path(state.cfg["simulation"]["scenario"]).stem, "scenarios": out}
 
     @app.get("/api/simulate")
@@ -419,9 +420,13 @@ def create_app(config_path: str | None = None) -> FastAPI:
                 topo_id = None
             else:
                 graph, topo_id = state.graph(SAMPLE_ID)[0], SAMPLE_ID
+            real_graphs = None
+            if sc.real_traffic_dir:
+                matrix_paths = discover_matrix_files(resolve_path(sc.real_traffic_dir))
+                real_graphs = real_trace(graph, matrix_paths, state.cfg).graphs
             out_dir = output_dir(state.cfg, "simulations", sc.name)
             result = run_simulation(graph, sc, rec, state.cfg, out_dir, lime=False, figures=False,
-                                    log=lambda *_: None)
+                                    log=lambda *_: None, real_graphs=real_graphs)
             steps = []
             for r in result["history"]:
                 step = {"step": r["step"], "path": r["path"].split("-"), "rerouted": r["rerouted"],
