@@ -20,7 +20,7 @@ Socket pairs live in the same lab folder: `server.py` and `client.py`.
 
 Capstone (Title 4 — XAI dynamic routing): `projects/xai-dynamic-routing/`. Layout: `docs/xai-dynamic-routing-overview.md` section 12. Phases, dependencies, and checklists: `docs/xai-dynamic-routing-phase-plan.md`. Live execution status: `docs/phase-execution-status.md` (refresh before every commit). Operator commands: `docs/execution-plan.md` (always ship a runnable script; no `python -c`-only verification). Concept notes: `docs/concepts/cn-concepts-xai-routing.md`. Demo webpage phase plan: `docs/web/web-phase-plan.md`. Backend/Docker (install, start, debug, test, WSL): `docs/web/backend-docker.md`. HTTP API: `docs/web/api.md`. Rolling context summary (rewrite near ~80% context): `docs/context-summary.md`. Host bind `127.0.0.1:8765`. After finishing a phase, tick that checklist in the phase-plan file. Put new routing/XAI code under the project folder, not under `labs/`.
 
-The capstone **web demo** may use FastAPI, Uvicorn, and Docker; that exception applies only under `projects/xai-dynamic-routing/`.
+The capstone under `projects/xai-dynamic-routing/` is exempt from the labs' stdlib-only rule: it may use any package listed in `projects/xai-dynamic-routing/requirements.txt` (currently networkx, pandas, numpy, scipy, scikit-learn, joblib, shap, lime, matplotlib, fastapi, uvicorn, httpx). This includes the web demo's use of FastAPI, Uvicorn, and Docker.
 
 Faults are logged in `docs/fault-ledger.md`. Do **not** apply those fixes unless the user names the fault ID(s) and explicitly approves correction.
 

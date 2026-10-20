@@ -5,6 +5,26 @@
 **Ops (install, start, debug, test):** [backend-docker.md](backend-docker.md)  
 **Routing phases:** [../xai-dynamic-routing-phase-plan.md](../xai-dynamic-routing-phase-plan.md)
 
+**Status (2026-10-12): all tabs P0–P7 are implemented** (`web/app.py`, `web/static/`), tested by
+`tests/test_web.py` (API, every phase) and checked in a headless browser. Start without Docker:
+`scripts\web-local.cmd` (or `python -m uvicorn web.app:app --host 127.0.0.1 --port 8765`), then open
+`http://127.0.0.1:8765/`. Tabs P3–P6 need a trained model (`python scripts/train.py`); without one they
+show a "train first" message (HTTP 503) instead of fake data.
+
+| Tab | Route(s) | Status |
+|-----|----------|--------|
+| P0 Topology | `GET /api/topology` | implemented: graph, link details on click, colour links by metric, provenance |
+| P1 Path features | `GET /api/paths` | implemented: candidate table, click a row to draw the path |
+| P2 RIP / OSPF | `GET /api/baselines` | implemented: RIP, OSPF (delay), OSPF (10^8/bw) cards + overlay |
+| P3 AI recommend | `POST /api/infer` | implemented: ranked candidates, AI path vs black-box MLP vs OSPF |
+| P4 Explanation | `GET /api/explain` | implemented: plain-English summary, SHAP bars, why-not-runner-up bars, optional LIME |
+| P5 Compare | `GET /api/compare`, `GET /api/evaluation` | implemented: RIP/OSPF/AI/AI-BB table, per-pair drawing, held-out evaluation table |
+| P6 Timeline | `GET /api/scenarios`, `GET /api/simulate` | implemented: play/pause/slider, reroute reasons, SHAP vs previous path, cost chart |
+| P7 Larger topology | `GET /api/topologies`, `?topology=` on every route | implemented: search 300+ Topology Zoo / SNDlib / data/raw networks (geographic layout when coordinates exist) |
+
+Topologies come from a fixed catalog (sample, `data/raw/`); the planned upload route was not added,
+so the server never reads arbitrary paths.
+
 The page is a **lab demo**, not a production NOC. Each software phase must add a **use-case panel** (what an operator would do) and an **enhancement panel** (what RIP/OSPF cannot do yet, or what this phase adds). Hide or mark “not built” for future tabs so the UI never pretends a phase is done.
 
 Bind stays **`127.0.0.1:8765`** on the host. See backend-docker.md for why the container listens on `0.0.0.0` internally.

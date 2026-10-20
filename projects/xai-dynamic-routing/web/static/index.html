@@ -3,35 +3,62 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>XAI routing demo — P0 topology</title>
+  <title>XAI routing demo</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <header>
-    <h1>Explainable routing demo</h1>
-    <p class="sub">Phase 0: inspect the lab topology. RIP / OSPF / AI tabs unlock in later phases.</p>
+    <h1>Explainable AI dynamic routing</h1>
+    <p class="sub">Multi-metric (QoS + security) path recommendation with SHAP/LIME explanations, compared with RIP-like and OSPF-like routing. Lab demo, bound to 127.0.0.1.</p>
   </header>
-  <nav>
-    <span class="tab on">Topology</span>
-    <span class="tab off" title="Phase 1">Path features</span>
-    <span class="tab off" title="Phase 2">RIP / OSPF</span>
-    <span class="tab off" title="Phase 3–4">AI + XAI</span>
-    <span class="tab off" title="Phase 5">Compare</span>
-    <span class="tab off" title="Phase 6">Timeline</span>
+
+  <section class="controls">
+    <label>Topology <select id="topology"></select></label>
+    <label>Source <select id="src"></select></label>
+    <label>Destination <select id="dst"></select></label>
+    <span id="status" role="status"></span>
+  </section>
+
+  <nav id="tabs" role="tablist">
+    <button data-tab="topology" class="tab on">P0 Topology</button>
+    <button data-tab="paths" class="tab">P1 Path features</button>
+    <button data-tab="baselines" class="tab">P2 RIP / OSPF</button>
+    <button data-tab="infer" class="tab">P3 AI recommend</button>
+    <button data-tab="explain" class="tab">P4 Explanation</button>
+    <button data-tab="compare" class="tab">P5 Compare</button>
+    <button data-tab="timeline" class="tab">P6 Timeline</button>
+    <button data-tab="larger" class="tab">P7 Larger topology</button>
   </nav>
+
   <main>
-    <section class="panel">
-      <h2>Use-case</h2>
-      <p>You are a network operator looking at a small L3 graph (R1–R8). Click an edge to read QoS and <code>security_risk</code> (a lab score, not an attack tool).</p>
+    <section class="graph-card">
+      <div class="graph-head">
+        <span id="graph-title"></span>
+        <label class="small">Color links by
+          <select id="color-by">
+            <option value="">none</option>
+            <option value="congestion">congestion</option>
+            <option value="security_risk">security_risk</option>
+            <option value="utilization">utilization</option>
+            <option value="loss">loss</option>
+            <option value="delay">delay</option>
+          </select>
+        </label>
+      </div>
+      <svg id="graph" viewBox="0 0 1000 600" role="img" aria-label="Network topology"></svg>
+      <div id="legend"></div>
+      <pre id="detail">Click a link to read its metrics.</pre>
     </section>
-    <section class="panel">
-      <h2>Enhancement (later)</h2>
-      <p>Classical RIP uses hop count; OSPF uses one link cost. Later phases add multi-metric paths, an AI recommendation, and SHAP/LIME on this page.</p>
+
+    <section class="tab-card">
+      <div class="panel usecase"><h2>Use-case</h2><p id="usecase"></p></div>
+      <div class="panel enhancement"><h2>Enhancement over RIP / OSPF</h2><p id="enhancement"></p></div>
+      <div id="content"></div>
     </section>
-    <p id="status">Loading topology…</p>
-    <svg id="graph" viewBox="0 0 640 400" role="img" aria-label="Sample topology"></svg>
-    <pre id="detail">Click a link.</pre>
   </main>
+
+  <footer>Security risk is a numeric link attribute in a simulation, not an attack tool. Explanations describe the model's prediction, not network causation.</footer>
   <script src="/static/app.js"></script>
 </body>
 </html>

@@ -4,16 +4,26 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .ipynb_checkpoints/
+.env
+.env.*
+*.log
+*.egg-info/
+build/
+dist/
 
+# Raw datasets (Topology Zoo, SNDlib, CAIDA) stay local.
 projects/xai-dynamic-routing/data/raw/*
 !projects/xai-dynamic-routing/data/raw/.gitkeep
 
+# Generated training tables.
 projects/xai-dynamic-routing/data/processed/*
 !projects/xai-dynamic-routing/data/processed/.gitkeep
 
+# Trained model weights (~15 MB) and reports: regenerate with scripts/train.py.
 projects/xai-dynamic-routing/models/*
 !projects/xai-dynamic-routing/models/.gitkeep
 
+# Generated outputs: regenerate with scripts/demo.py.
 projects/xai-dynamic-routing/outputs/routes/*
 !projects/xai-dynamic-routing/outputs/routes/.gitkeep
 
@@ -22,3 +32,15 @@ projects/xai-dynamic-routing/outputs/explanations/*
 
 projects/xai-dynamic-routing/outputs/figures/*
 !projects/xai-dynamic-routing/outputs/figures/.gitkeep
+
+projects/xai-dynamic-routing/outputs/reports/*
+!projects/xai-dynamic-routing/outputs/reports/.gitkeep
+
+projects/xai-dynamic-routing/outputs/simulations/*
+!projects/xai-dynamic-routing/outputs/simulations/.gitkeep
+
+projects/xai-dynamic-routing/outputs/mininet/*
+!projects/xai-dynamic-routing/outputs/mininet/.gitkeep
+
+projects/xai-dynamic-routing/outputs/packet_tracer/*
+!projects/xai-dynamic-routing/outputs/packet_tracer/.gitkeep

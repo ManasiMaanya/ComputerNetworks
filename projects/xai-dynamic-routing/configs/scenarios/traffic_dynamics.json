@@ -1,0 +1,12 @@
+{
+  "name": "traffic_dynamics",
+  "description": "R2->R5 on the sample topology under the trained-on traffic model: congestion, loss and risk revert toward each link's baseline with random transient congestion bursts and security incidents. R2->R5's two best candidates are close, so ordinary dynamics can flip the recommendation. No scripted events.",
+  "topology": null,
+  "src": "R2",
+  "dst": "R5",
+  "steps": 30,
+  "seed": 42,
+  "traffic": true,
+  "drift": {"metrics": [], "sigma": 0.0},
+  "events": []
+}

@@ -1,13 +1,14 @@
 # Execution plan
 
-**Who runs this:** you (local PowerShell). The agent must add a script and a row here whenever a phase becomes runnable. Do not rely on `python -c` one-liners as the only way to verify.
+**Who runs this:** you (local PowerShell or any shell). Every phase has a script; do not rely on `python -c` one-liners.
 
 **Live status:** [phase-execution-status.md](phase-execution-status.md)  
 **Phase design:** [xai-dynamic-routing-phase-plan.md](xai-dynamic-routing-phase-plan.md)  
+**Methods reference:** [xai-dynamic-routing-methods.md](xai-dynamic-routing-methods.md)  
 **Code:** `projects/xai-dynamic-routing/`  
 **Concepts:** [concepts/cn-concepts-xai-routing.md](concepts/cn-concepts-xai-routing.md)
 
-Working directory for all commands below: `projects/xai-dynamic-routing`. On Windows, use `scripts\*.cmd` (PowerShell often blocks `.ps1`).
+Commands below assume `projects/xai-dynamic-routing` as the working directory, but every script also works from any other directory. On Windows, `scripts\*.cmd` avoids PowerShell's execution policy.
 
 ---
 
@@ -20,7 +21,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Stay in the venv for later steps.
+`lime` is optional at runtime: without it, explanations are SHAP-only and say so.
 
 ---
 
@@ -28,57 +29,45 @@ Stay in the venv for later steps.
 
 | Phase | Ready? | You execute | Expected |
 |-------|--------|-------------|----------|
-| **P0** Scaffold | **yes** | `python scripts/load_sample.py` or `scripts\p0.cmd` | `nodes: 8` and `edges: 11` |
-| **P0 web** | **yes** | `cd` into `projects\xai-dynamic-routing` then `.\scripts\web-up.cmd` | Graph at `http://127.0.0.1:8765/`; `.\scripts\web-test.cmd` prints `ok` |
-| **P1** Features | no | *(script to be added with P1)* | Path/feature table `R1`→`R8` |
-| **P2** Baselines | no | *(script to be added with P2)* | RIP vs OSPF traces |
-| **P3** Train / infer | no | `python scripts/train.py` then `python scripts/infer.py` | Currently exits: not implemented |
-| **P4** XAI | no | *(extend infer or new script)* | Path + SHAP/LIME text |
-| **P5** Compare | no | `python scripts/compare.py` | Currently exits: not implemented |
-| **P6** Dynamics | no | *(script to be added with P6)* | 10-step reroute log |
-| **P7** Zoo / testbed | no | *(script to be added with P7)* | Compare on a non-toy graph |
+| **All** | **yes** | `python scripts/demo.py` or `scripts\demo.cmd` | Runs P0→P6 + Mininet and Packet Tracer exports in order; trains if no (current) model exists |
+| **P0** Scaffold | **yes** | `python scripts/load_sample.py` or `scripts\p0.cmd` | `nodes: 8`, `edges: 11`, `connected components: 1` |
+| **Web P0–P7** | **yes** | `scripts\web-local.cmd` (no Docker) or `scripts\web-up.cmd` (Docker), then `http://127.0.0.1:8765/` | All tabs: topology, path features, RIP/OSPF, AI recommend, explanation, compare, timeline, larger topology; `scripts\web-test.cmd` prints 9 `ok` lines |
+| **P1** Features | **yes** | `python scripts/features.py --src R1 --dst R8` | 5 candidate paths (all 4 hops) and a 12-column feature table; path 0 `R1-R2-R4-R6-R8`, `sum_delay` 25 |
+| **P2** Baselines | **yes** | `python scripts/baselines.py --src R1 --dst R8`, then `--all-pairs` | Both pick `R1-R2-R4-R6-R8` (hops 4, delay 25); `--all-pairs` lists 15/56 pairs where RIP ≠ OSPF (e.g. R2→R5) |
+| **P3** Train | **yes** | `python scripts/train.py` | ~80–100 s; 44,160 rows (simulated traffic, outcome labels); held-out table of hop count / min delay / snapshot rule / black-box / RF / oracle (RF top-1 ≈ 0.82, regret ≈ 0.027); writes `models/` incl. `route_cost_mlp.joblib` |
+| **P3/P4** Infer + XAI | **yes** | `python scripts/infer.py --src R1 --dst R8 --explain` | `RECOMMENDED: R1 -> R2 -> R4 -> R6 -> R8`, signed SHAP list, contrast with runner-up, LIME (or skip note); JSON + PNG saved |
+| **P5** Compare | **yes** | `python scripts/compare.py` | 7 pairs × RIP/OSPF/AI/AI-BB; CSV + Markdown in `outputs/reports/`, figure in `outputs/figures/` |
+| **P6** Dynamics | **yes** | `python scripts/simulate.py` | 10 steps; reroutes at t=5 and t=8 with reasons and new explanations |
+| **P6** Traffic | **yes** | `python scripts/simulate.py --scenario configs/scenarios/traffic_dynamics.json` | R2→R5, 30 steps under the traffic model; 11 reroutes (flapping between two near-tied paths) |
+| **P7** Zoo | **yes** (network) | `python scripts/fetch_topology_zoo.py --name Geant2012` then `python scripts/compare.py --topology data/raw/Geant2012.gml` | 40 nodes / 61 links (from the Zoo authors' mirror when topology-zoo.org is down); delay from distance on 58/61 links; 12-pair comparison |
+| **P7** Mininet | export only | `python scripts/export_mininet.py` | `outputs/mininet/sample_topology_mininet.py` (run on Linux with `sudo`) |
+| **P7** Packet Tracer | export + verify | `python scripts/packet_tracer.py export`, then follow `outputs/packet_tracer/GUIDE.md`; `python scripts/packet_tracer.py verify --protocol ospf [--ai] --trace trace.txt` | `build_ospf.js` / `build_rip.js` / `ai_routes.js` for PTBuilder; 3 demo pairs where AI ≠ OSPF with expected tracert paths |
+| **Tests** | **yes** | `python scripts/run_tests.py` or `scripts\tests.cmd` | 172 tests OK; LIME test skipped if `lime` is missing; Packet Tracer script tests skipped if Node.js is missing |
 
-Webpage plan: [web/web-phase-plan.md](web/web-phase-plan.md). Docker install/start/debug/test: [web/backend-docker.md](web/backend-docker.md). API usage and sample JSON: [web/api.md](web/api.md).
-
----
-
-## 3. P0 — run now
-
-From repo root:
-
-```
-cd projects/xai-dynamic-routing
-.\.venv\Scripts\activate.bat
-python scripts/load_sample.py
-```
-
-Or: `scripts\p0.cmd`
-
-If `networkx` is missing, run setup again. Bind address for any later UI: `127.0.0.1` (see `configs/default.json`).
+Webpage plan: [web/web-phase-plan.md](web/web-phase-plan.md). Docker install/start/debug/test: [web/backend-docker.md](web/backend-docker.md).
 
 ---
 
-## 4. Order (your plan)
+## 3. Order
 
-1. Setup (venv + pip)  
-2. **P0** `load_sample.py` — confirm 8 / 11  
-2b. **P0 web:** `cd projects\xai-dynamic-routing` then `.\scripts\web-up.cmd` → `http://127.0.0.1:8765/` → `.\scripts\web-test.cmd`  
-3. Wait for P1 script, then run it (`R1` → `R8` table)  
-4. P2 baseline script (can overlap P3 after P1)  
-5. P3 `train.py` then `infer.py`  
-6. P4 explanations  
-7. P5 `compare.py`  
-8. Optional P6 then P7  
-
-Do not skip to Mininet (P7) before M3 (P4 demo).
+1. Setup (venv + pip)
+2. P0 `load_sample.py`
+3. P1 `features.py`
+4. P2 `baselines.py` (independent of the model)
+5. P3 `train.py`, then `infer.py`
+6. P4 `infer.py --explain`
+7. P5 `compare.py`
+8. P6 `simulate.py`
+9. P7 `fetch_topology_zoo.py` + `compare.py --topology ...`; `export_mininet.py`; `packet_tracer.py export`
+10. `run_tests.py`
 
 ---
 
-## 5. Agent rule (when implementing)
+## 4. Agent rule (when implementing)
 
-For each new phase:
+For each new runnable step:
 
-1. Add a script under `projects/xai-dynamic-routing/scripts/` that you can run with `python scripts/<name>.py`.
-2. Wire it in `scripts/run.ps1` if it is a named step.
-3. Mark **Ready?** yes in the table above and write **Expected** output.
+1. Add a script under `projects/xai-dynamic-routing/scripts/` that runs with `python scripts/<name>.py`.
+2. Wire it into `scripts/run.ps1` and, if it is a main step, `scripts/demo.py`.
+3. Update the table above with **Ready?** and **Expected** taken from a real run.
 4. Update [phase-execution-status.md](phase-execution-status.md) before commit.

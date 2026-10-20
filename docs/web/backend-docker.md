@@ -12,10 +12,10 @@ The process inside Docker listens on `0.0.0.0:8765` so the container port can be
 
 | Piece | Role |
 |--------|------|
-| `web/app.py` | FastAPI: health, topology JSON, static demo page |
-| `web/static/` | P0 graph page (vanilla HTML/JS) |
+| `web/app.py` | FastAPI: health, every phase's API (P0–P7), static demo page |
+| `web/static/` | Demo page, all tabs P0–P7 (vanilla HTML/JS/CSS, no external libraries) |
 | `Dockerfile` | Image: Python 3.12 + app |
-| `docker-compose.yml` | One service `web` |
+| `docker-compose.yml` | One service `web`; mounts `models/` (read-only), `data/raw/` (read-only), `outputs/` |
 | NetworkX `src/topology/load.py` | Loads `data/samples/sample_topology.json` |
 
 Later phases add routes on the **same** service (see web-phase-plan.md). Do not add a second public port without documenting it here.
@@ -102,6 +102,8 @@ Do **not** need to change the machine-wide execution policy.
 
 ### 3.2 Local uvicorn (no Docker)
 
+Windows, no venv activation needed: `scripts\web-local.cmd` (or `.\scripts\run.ps1 web`).
+
 From `projects/xai-dynamic-routing` with venv on:
 
 ```
@@ -143,9 +145,24 @@ docker compose down
 | HTTP from WSL | `curl -sS http://127.0.0.1:8765/health` | `{"status":"ok"}` |
 | Topology API | `curl -sS http://127.0.0.1:8765/api/topology` | JSON with 8 nodes, 11 edges |
 
-`scripts/web_health.py` is the same checks from Python (Windows or WSL) against `127.0.0.1:8765`.
+`scripts/web_health.py` checks every phase from Python (Windows or WSL) against `127.0.0.1:8765`:
+P0–P2 and P7 must pass; P3–P6 are reported as skipped (not failed) when no trained model exists.
 
-P1–P7 API tests are added when those routes exist. Do not assert fake paths.
+| Phase route | Quick check | Expected |
+|-------------|-------------|----------|
+| P1 | `curl "http://127.0.0.1:8765/api/paths?src=R1&dst=R8"` | 5 candidates with features |
+| P2 | `curl "http://127.0.0.1:8765/api/baselines?src=R1&dst=R7"` | RIP R1-R2-R5-R7, OSPF R1-R3-R5-R7 |
+| P3 | `curl -X POST -H "Content-Type: application/json" -d "{\"src\":\"R1\",\"dst\":\"R7\"}" http://127.0.0.1:8765/api/infer` | ranked candidates + black-box pick |
+| P4 | `curl "http://127.0.0.1:8765/api/explain?src=R1&dst=R8"` | SHAP, contrast, summary sentence |
+| P5 | `curl "http://127.0.0.1:8765/api/compare?pairs=R1:R8,R2:R5"` | 8 rows (4 methods × 2 pairs) |
+| P6 | `curl "http://127.0.0.1:8765/api/simulate?scenario=sample_incident"` | 10 steps, reroutes at t=5 and t=8 |
+| P7 | `curl http://127.0.0.1:8765/api/topologies` | sample + data/raw networks |
+
+Automated: `python -m unittest tests.test_web` (FastAPI `TestClient`, needs `httpx`; skipped if missing).
+
+The Docker path (§3.1) was not re-run on 2026-10-12 (Docker Desktop did not start on that machine);
+the compose file now mounts `models/`, `data/raw/` and `outputs/` so the AI tabs work in the
+container once a model is trained on the host.
 
 ---
 
@@ -221,6 +238,7 @@ For venv, use `.\.venv\Scripts\activate.bat` instead of `Activate.ps1` if `.ps1`
 | `projects/xai-dynamic-routing/.dockerignore` | Keep image small |
 | `projects/xai-dynamic-routing/web/app.py` | FastAPI app |
 | `projects/xai-dynamic-routing/web/static/` | Demo page |
+| `projects/xai-dynamic-routing/scripts/web-local.cmd` | Windows start without Docker (venv uvicorn) |
 | `projects/xai-dynamic-routing/scripts/web-up.cmd` | Windows start (no execution-policy issue) |
 | `projects/xai-dynamic-routing/scripts/web-down.cmd` | Windows stop |
 | `projects/xai-dynamic-routing/scripts/web-test.cmd` | Windows health check |
@@ -245,10 +263,10 @@ For venv, use `.\.venv\Scripts\activate.bat` instead of `Activate.ps1` if `.ps1`
 | Phase | Route | Status |
 |-------|--------|--------|
 | 0 | `GET /health` `GET /api/topology` `GET /` | **implemented** |
-| 1 | `GET /api/paths` | planned |
-| 2 | `GET /api/baselines` | planned |
-| 3 | `POST /api/infer` | planned |
-| 4 | `GET /api/explain` | planned |
-| 5 | `GET /api/compare` | planned |
-| 6 | `GET /api/simulate` | planned |
-| 7 | topology switch/upload | planned |
+| 1 | `GET /api/paths` | **implemented** |
+| 2 | `GET /api/baselines` | **implemented** |
+| 3 | `POST /api/infer` | **implemented** |
+| 4 | `GET /api/explain` | **implemented** |
+| 5 | `GET /api/compare`, `GET /api/evaluation` | **implemented** |
+| 6 | `GET /api/scenarios`, `GET /api/simulate` | **implemented** |
+| 7 | `GET /api/topologies` + `?topology=` switch (no upload) | **implemented** |

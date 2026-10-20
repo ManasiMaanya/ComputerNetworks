@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -10,26 +9,22 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from src.cli import rel, run
+from src.config import load_config, resolve_path
 from src.topology.load import load_graph
 
 
 def main() -> int:
-    config_path = ROOT / "configs" / "default.json"
-    if not config_path.is_file():
-        print(f"error: missing config {config_path}", file=sys.stderr)
-        return 1
-    config = json.loads(config_path.read_text(encoding="utf-8"))
-    topo = ROOT / config.get("sample_topology", "data/samples/sample_topology.json")
-    if not topo.is_file():
-        print(f"error: missing topology {topo}", file=sys.stderr)
-        return 1
+    config = load_config()
+    topo = resolve_path(config["sample_topology"])
     graph = load_graph(topo)
-    print(f"topology: {topo.relative_to(ROOT)}")
+    print(f"topology: {rel(topo)}")
     print(f"nodes: {graph.number_of_nodes()}")
     print(f"edges: {graph.number_of_edges()}")
     print("nodes:", ", ".join(str(n) for n in graph.nodes()))
+    print(f"connected components: {graph.graph['components']}")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    run(main)

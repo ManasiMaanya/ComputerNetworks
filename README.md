@@ -12,6 +12,8 @@ VIT Computer Networks coursework and capstone.
 
 Capstone overview: [docs/xai-dynamic-routing-overview.md](docs/xai-dynamic-routing-overview.md)  
 Phase plan: [docs/xai-dynamic-routing-phase-plan.md](docs/xai-dynamic-routing-phase-plan.md)  
+Methods reference (features, scoring, model, XAI, data provenance): [docs/xai-dynamic-routing-methods.md](docs/xai-dynamic-routing-methods.md)  
+Run the whole demo: `python projects/xai-dynamic-routing/scripts/demo.py`  
 Phase execution status (update before commit): [docs/phase-execution-status.md](docs/phase-execution-status.md)  
 Execution plan (scripts you run): [docs/execution-plan.md](docs/execution-plan.md)  
 CN concepts for this project: [docs/concepts/cn-concepts-xai-routing.md](docs/concepts/cn-concepts-xai-routing.md)  
