@@ -10,11 +10,19 @@ in the instance's capacity units, treated as Mbps). delay: from coordinates when
 longitude/latitude ("estimated", same formula as Topology Zoo), else the default. All other
 metrics follow topology_zoo.missing_metric_policy. Demands are kept in graph.graph["demands"]
 (largest first) and used as comparison pairs.
+
+`load_demand_matrix` reads the other SNDlib file shape: a real-traffic snapshot from one of
+SNDlib's time-varying "dynamic traffic" archives (e.g. Abilene's 5-minute matrices) -- one file
+per time interval, sharing the base network's NODES but with an empty `LINKS ( )` section and a
+DEMANDS section listing only the demand pairs with non-negligible traffic that interval (SNDlib's
+own convention rounds and drops near-zero demands, below 0.0000005 Mbit/s, from the file entirely
+rather than writing them as 0.0).
 """
 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 import networkx as nx
@@ -28,6 +36,7 @@ _NODE = re.compile(r"^\s*(\S+)\s*\(\s*([-\d.eE+]+)\s+([-\d.eE+]+)\s*\)", re.M)
 _LINK = re.compile(r"^\s*(\S+)\s*\(\s*(\S+)\s+(\S+)\s*\)\s*([-\d.eE+]+)\s+[-\d.eE+]+\s+[-\d.eE+]+\s+"
                    r"[-\d.eE+]+\s*\(([^)]*)\)", re.M)
 _DEMAND = re.compile(r"^\s*(\S+)\s*\(\s*(\S+)\s+(\S+)\s*\)\s*[-\d.eE+]+\s+([-\d.eE+]+)", re.M)
+_META_LINE = re.compile(r"^\s*(\w+)\s*=\s*(.+?)\s*$", re.M)
 
 
 def _section(text: str, name: str, path: Path, required: bool = True) -> str:
@@ -76,3 +85,38 @@ def load_sndlib(path: str | Path, cfg: dict | None = None) -> nx.Graph:
     graph = zoo_to_graph(raw, path.stem, cfg["topology_zoo"])
     graph.graph.update({"dataset": "SNDlib (native format)", "source": str(path), "demands": demands})
     return graph
+
+
+@dataclass(frozen=True)
+class DemandMatrix:
+    """One SNDlib real-traffic snapshot: `demands[(src, dst)]` is that directed pair's measured
+    load in Mbit/s. A pair absent from `demands` carried zero (real-measured, not missing) traffic
+    that interval -- callers should treat a missing key as 0.0, not as an error."""
+
+    timestamp: str | None
+    demands: dict[tuple[str, str], float]
+
+
+def load_demand_matrix(path: str | Path, nodes: set[str]) -> DemandMatrix:
+    """Parse one SNDlib dynamic-traffic-matrix file against a known node set (normally the base
+    network's `graph.nodes()`, loaded separately via `load_sndlib`). Unlike `load_sndlib`, the
+    LINKS section here is expected to be empty -- these files carry no topology, only traffic."""
+    path = Path(path)
+    if not path.is_file():
+        raise TopologyError(f"SNDlib demand-matrix file not found: {path}")
+    text = re.sub(r"#.*", "", path.read_text(encoding="utf-8", errors="replace"))
+
+    meta = {key: value for key, value in _META_LINE.findall(_section(text, "META", path, required=False))}
+    unit = meta.get("unit")
+    if unit is not None and unit != "MBITPERSEC":
+        raise TopologyError(f"{path}: demand unit '{unit}' is not MBITPERSEC, the only unit this "
+                            f"loader converts (no conversion applied) -- check the source data")
+
+    demands: dict[tuple[str, str], float] = {}
+    for demand_id, u, v, value in _DEMAND.findall(_section(text, "DEMANDS", path, required=False)):
+        if u not in nodes or v not in nodes:
+            raise TopologyError(f"{path}: demand {demand_id} uses unknown node(s) '{u}'/'{v}'")
+        if u == v:
+            raise TopologyError(f"{path}: demand {demand_id} has identical source and destination '{u}'")
+        demands[(u, v)] = float(value)
+    return DemandMatrix(timestamp=meta.get("time"), demands=demands)
